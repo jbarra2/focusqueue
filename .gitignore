@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+
+# Next.js and build output
+.next/
+out/
+*.tsbuildinfo
+
+# Task data. The repository is public.
+data/
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Tests and logs
+coverage/
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Editors and agents. Keep shared Cursor rules.
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.cursor/*
+!.cursor/rules/
+!.cursor/rules/**
+.claude/settings.local.json
