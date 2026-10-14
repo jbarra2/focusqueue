@@ -85,6 +85,10 @@ There is no login, so only this computer may reach the app.
 - Database tests use an in-memory database, never `data/focusqueue.sqlite`.
 - A refactor and a feature are separate commits.
 
+## Build log
+
+`LOG.md` has one numbered entry per piece of work. Each entry quotes what I asked under **Asked** and lists the results under **What came back / what changed**. The heading names the tool, such as Cursor or Claude Code. The repository is public, so keep real tasks and other private repositories out of it.
+
 ## Commits
 
 I make every commit. Agents review, stage, and suggest the message. Do not run `git commit` or `git push` unless I ask for that commit in the same message.
@@ -97,9 +101,10 @@ At each stop:
 2. Run `npm run verify`. If it fails and you cannot fix it, stop, say what fails, and do not stage.
 3. Review the uncommitted diff for mistakes, secrets, `data/`, and generated files.
 4. Fix anything wrong before staging.
-5. Stage only the files that belong in this commit.
-6. Suggest a one- or two-sentence commit message that says why.
-7. Wait.
+5. Add or update this piece's entry in `LOG.md`.
+6. Stage only the files that belong in this commit, including `LOG.md`.
+7. Suggest a one- or two-sentence commit message that says why.
+8. Wait.
 
 When I ask whether the work is ready to commit, do this same check and the staging in that turn. Do not only answer yes or no.
 
