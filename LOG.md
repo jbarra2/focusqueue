@@ -2,8 +2,8 @@
 
 A running record of what I asked the chat AI for and what changed.
 
-**Chat AI used:** Claude, in Cursor for planning and reviews and in Claude Code
-for building
+**Chat AI used:** Claude, in Claude Code inside VS Code. Entries 1 to 4 were
+planned and reviewed in Cursor.
 
 ---
 
@@ -130,3 +130,29 @@ for building
   `git commit --amend --only` and `git push --force-with-lease`.
 - `127.0.0.1` is fine in a public commit. It means "this computer" on every
   machine.
+
+## 5. Move to VS Code (Claude Code)
+
+**Asked:**
+
+> I am moving away from Cursor and into a VS Code + Claude Code development
+> environment. How should we move on?
+
+> Fold Cursor rules into Claude Code. We can also fold AGENTS.md into
+> CLAUDE.md. Let me know if this is or isn't a sensible thing to do.
+
+**What came back / what changed:**
+
+- There were no committed Cursor rules to fold in. Removed the `.cursor` lines
+  from `.gitignore`.
+- Moved the project rules from `AGENTS.md` into `CLAUDE.md`. `AGENTS.md` now
+  holds only the block that `next dev` writes and re-adds, so Next can keep
+  updating it without touching my rules. `CLAUDE.md` still imports it.
+- Folding everything into `CLAUDE.md` and deleting `AGENTS.md` was not
+  sensible: `next dev` would recreate the file on every start.
+- The commit-stop review now runs `/code-review`, and `/security-review` for
+  the database and task-action pieces. This replaces the Cursor review.
+- Added `.vscode/extensions.json` and `.vscode/settings.json`: Prettier on
+  save, and the editor uses the project's TypeScript 7.
+- Nothing in the repository depends on which Claude account is signed in, so
+  changing accounts later needs only `/login`.
