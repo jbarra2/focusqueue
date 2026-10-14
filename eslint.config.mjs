@@ -7,7 +7,7 @@ import globals from "globals";
 
 // typescript-eslint does not support TypeScript 7 yet, which this repo typechecks with.
 // Babel parses TypeScript so jsx-a11y can still fail the build.
-// When typescript-eslint supports TypeScript 7, replace this parser. See AGENTS.md.
+// When typescript-eslint supports TypeScript 7, replace this parser. See CLAUDE.md.
 // Do not downgrade TypeScript.
 export default [
   {

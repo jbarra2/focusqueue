@@ -175,3 +175,18 @@ planned and reviewed in Cursor.
   order, Later never on the focus card, a Sunday with a task due Monday, an
   empty week, the created-first tiebreak, month and year boundaries, and Done.
 - `npm run verify` passes.
+
+## 7. Fix a stale pointer (Claude Code)
+
+**Asked:**
+
+> Ok the commit is done, let's fix the last bit you mentioned and stage another
+> small commit
+
+**What came back / what changed:**
+
+- The comment above the parser in `eslint.config.mjs` said "See AGENTS.md".
+  Entry 5 moved the TypeScript 7 rule into `CLAUDE.md`, so the comment now
+  points there.
+- Nothing else referred to the old location. `CLAUDE.md` still imports
+  `AGENTS.md` on purpose.
