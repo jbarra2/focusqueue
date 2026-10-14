@@ -1,0 +1,33 @@
+:root {
+  --color-bg: #fafaf7;
+  --color-text: #1c1c1a;
+  --color-muted: #5c5c57;
+  --color-border: #d6d6cf;
+  --color-accent: #1d4ed8;
+  --color-danger: #b42318;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: system-ui, sans-serif;
+  line-height: 1.5;
+}
+
+main {
+  max-width: 40rem;
+  margin: 0 auto;
+  padding: 1.5rem 1rem;
+}
+
+:focus-visible {
+  outline: 3px solid var(--color-accent);
+  outline-offset: 2px;
+}

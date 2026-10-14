@@ -1,0 +1,7 @@
+node_modules
+.next
+coverage
+data
+package-lock.json
+# Next rewrites this file and uses the OS line ending. Do not format it.
+next-env.d.ts
