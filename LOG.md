@@ -156,3 +156,22 @@ planned and reviewed in Cursor.
   save, and the editor uses the project's TypeScript 7.
 - Nothing in the repository depends on which Claude account is signed in, so
   changing accounts later needs only `/login`.
+
+## 6. Queue order (Claude Code)
+
+**Asked:**
+
+> Review the project. What is the next step in development?
+
+**What came back / what changed:**
+
+- Next step was the queue order and its tests, since it needs no database and
+  the database and page will build on it.
+- Added `lib/task.ts` (the `Task` type), `lib/sort.ts` (pure functions that take
+  today's date as an argument and never read the clock), and `lib/sort.test.ts`.
+- Due dates are compared as `YYYY-MM-DD` strings, and day math builds a local
+  date from year, month, and day, so no date is read as UTC.
+- Tests cover overdue first, difficulty order on the same date, rest-of-week
+  order, Later never on the focus card, a Sunday with a task due Monday, an
+  empty week, the created-first tiebreak, month and year boundaries, and Done.
+- `npm run verify` passes.
