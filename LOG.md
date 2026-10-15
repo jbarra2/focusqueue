@@ -190,3 +190,30 @@ planned and reviewed in Cursor.
   points there.
 - Nothing else referred to the old location. `CLAUDE.md` still imports
   `AGENTS.md` on purpose.
+
+## 8. The database (Claude Code)
+
+**Asked:**
+
+> Let's get started with the next step in development
+
+**What came back / what changed:**
+
+- Worked on Opus at high effort, as planned in entry 3.
+- Added `better-sqlite3` and its types (`@types/better-sqlite3`). I did not add
+  `server-only`: Next handles that import itself, and Vitest points it at an
+  empty stub.
+- `lib/migrations.ts` holds the ordered migrations and applies them in one
+  immediate transaction tracked by `PRAGMA user_version`. Migration 1 creates
+  the `task` table with CHECK constraints for text, date, and difficulty.
+- `lib/db.ts` opens the one connection at `data/focusqueue.sqlite`. `lib/tasks.ts`
+  has the list, create, edit, delete, done, and open functions, each parsing
+  with Zod (`lib/task-schema.ts`) before one prepared statement.
+- Tests use an in-memory database only, and cover CHECK constraints that bypass
+  Zod, invalid input writing nothing, and SQL-looking text stored as text.
+- `/code-review` found a migration race and a leaked handle on a failed
+  migration. Both are fixed. `/security-review` found nothing.
+- Left for later: the database path comes from the working directory, so
+  starting the server from another folder would make a new empty database.
+  Course suggestions are case-sensitive, so "Physics" and "physics" are two.
+- `npm run verify` and `npm run build` pass.

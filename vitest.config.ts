@@ -6,7 +6,8 @@ const root = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
   resolve: {
-    alias: { "@": root },
+    // Next resolves "server-only" itself. Tests run outside Next, so it points at an empty module.
+    alias: { "@": root, "server-only": path.join(root, "test", "server-only.ts") },
   },
   test: {
     environment: "node",
