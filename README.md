@@ -1,6 +1,6 @@
 # Focusqueue
 
-A queue for one school week, for one person on this computer. It shows the one task to do now and the rest of the week in the same order. Each course is a group.
+A queue for one week, for one person on this computer. It shows the one task to do now and the rest of the week in the same order. Tasks can be sorted into groups, each with its own color.
 
 The app listens on `127.0.0.1` only. There is no login, so only this computer can reach it. Task data lives in `data/`, which is not in git.
 

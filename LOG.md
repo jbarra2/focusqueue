@@ -250,3 +250,68 @@ planned and reviewed in Cursor.
   case-sensitive. `next dev` changed a heading level in `AGENTS.md`. That is
   not part of this piece and is not staged.
 - `npm run verify` and `npm run build` pass.
+
+## 10. UI design and a general-purpose scope (Claude Code)
+
+**Asked:**
+
+> Let's start planning the UI design
+
+> For the design and theme, I want the task cards to be organized in a fashion
+> similar to scrolling through albums on a music app. So the current focus card
+> is in the center of the screen, while later cards follow behind it stacked to
+> the right. The card in focus should display the two cards, and clicking or
+> scrolling to another card on the stack puts that card in focus. By focus I
+> mean which card takes the screen at any given time, not which task should be
+> handled immediately. I also want to have different options in a header line,
+> allowing to filter a stack of cards in different ways to form different
+> visual lists.
+
+> We should plan to create different color themes, with dedicated colors to
+> assign to groups per theme, so that chosen colors stay on theme. For this
+> reason we may only have a limited amount of groups available to the user,
+> that is ok, just be sure to communicate that to the user if they reach the
+> group limit. We don't have to have the changing themes as a feature yet,
+> simply plan around this since it will be implemented in the future.
+
+> The base theme colors should not be part of the swatch table. The swatch
+> table for group colors should contain exactly 8 different colors (displayed
+> in little squares filled with those colors, two columns and four rows) that
+> the user can choose from. Cards not pertaining to a group (default) will keep
+> the base colors from the chosen theme.
+
+> I should also mention, I want this app to remain generalized for all
+> purposes. My example of using it for school pertains to my own experience,
+> but the idea is that this can be used by different people in different
+> fields. So you don't need to use terminology or design specifically for
+> school.
+
+**What came back / what changed:**
+
+- No code changed. This was planning, and the rules moved into `CLAUDE.md` and
+  `README.md` before any of it is built.
+- Decisions: the page is a card stack with one current card in the center. The
+  current card shows as two cards, a name card that asks before marking the task
+  done and an info card with click-to-edit fields and Delete. Do now is the
+  queue's pick and the page opens on it. A header line filters the stack by
+  queue section, group, difficulty, and name, and a task done this week moves to
+  Completed.
+- "Course" becomes "group" everywhere, and a group is optional. A task with no
+  group uses the theme's base card colors. Each group has one of 8 theme colors,
+  picked from a grid of 8 squares (two columns, four rows) that never includes
+  the base colors. When all 8 are taken, a new group is refused with one
+  sentence. A group frees its color when its last task is gone.
+- Colors belong to themes. A group stores a slot number, never a color value, so
+  a chosen color stays on theme when themes are added later. Only the warm theme
+  exists for now.
+- `CLAUDE.md` now describes the new page, the `task_group` table, and the
+  general-purpose rule. "Focus card" became "Do now", and the not-built-yet list
+  gained theme switching and renaming or removing groups. `README.md` has the
+  same neutral opening line.
+- The code still uses `course` and the old page. The build order is eight
+  commit stops. The first is a rename-only refactor from course to group. The
+  last is a styling pass, kept separate from the features.
+- Left for later: renaming `Queue.focus` to `doNow`, which can go in the rename
+  refactor. `next dev` also changed a heading level in `AGENTS.md`. That is not
+  part of this piece and is not staged.
+- `npm run verify` passes.
