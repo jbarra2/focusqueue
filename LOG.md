@@ -217,3 +217,36 @@ planned and reviewed in Cursor.
   starting the server from another folder would make a new empty database.
   Course suggestions are case-sensitive, so "Physics" and "physics" are two.
 - `npm run verify` and `npm run build` pass.
+
+## 9. Showing the queue (Claude Code)
+
+**Asked:**
+
+> What's next?
+
+**What came back / what changed:**
+
+- Next step was showing the queue on the page. It is read-only: the add form
+  and the task actions are the next stops, so this piece has no client code
+  apart from the error page.
+- `app/page.tsx` reads every task, builds the queue for today with `buildQueue`,
+  and renders it with `app/queue-view.tsx` and `app/task-item.tsx`: the focus
+  card, Due soon, Rest of this week, Later, and Done. It calls `connection()`
+  first, because `better-sqlite3` is synchronous and the page would otherwise be
+  built once at `next build`. The build now marks `/` as dynamic.
+- `lib/format.ts` makes the due labels (Overdue with the date, Today, Tomorrow,
+  or the date) and the Done label. They take today's date as an argument.
+- `app/error.tsx` shows one sentence and a Try again button. It never shows the
+  error message or stack.
+- Task text is rendered as plain text. A test checks that a task named like a
+  script tag comes out escaped.
+- `/code-review` found that `localDate` read years 0 to 99 as 1900 to 1999, and
+  the schema accepts those dates. Fixed in `lib/sort.ts` with a test. It also
+  caught a `completedLabel` test that depended on the time zone, and a missing
+  Done test. Both are fixed.
+- Left for later: the focus task also appears at the top of its own list, which
+  may need a cue or an exclusion once the task actions add buttons. The database
+  path still comes from the working directory, and course suggestions are still
+  case-sensitive. `next dev` changed a heading level in `AGENTS.md`. That is
+  not part of this piece and is not staged.
+- `npm run verify` and `npm run build` pass.

@@ -24,9 +24,12 @@ function formatDate(date: Date): string {
   return `${pad(date.getFullYear(), 4)}-${pad(date.getMonth() + 1, 2)}-${pad(date.getDate(), 2)}`;
 }
 
-function localDate(day: string): Date {
+export function localDate(day: string): Date {
   const [year, month, date] = day.split("-").map(Number);
-  return new Date(year, month - 1, date);
+  const result = new Date(2000, month - 1, date);
+  // The Date constructor reads years 0 to 99 as 1900 to 1999, so the year is set separately.
+  result.setFullYear(year);
+  return result;
 }
 
 /** Adds whole calendar days to a YYYY-MM-DD string. */
