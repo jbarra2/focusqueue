@@ -424,3 +424,33 @@ planned and reviewed in Cursor.
   public repo, so I kept the simple triggers. The first real run happens when the
   commit is pushed, and it has not run yet.
 - `npm run verify` and `npm run build` pass locally.
+
+## 14. Install without C++ build tools (Claude Code)
+
+**Asked:**
+
+> Which is a better option for the install problem? .npmrc or a readme note?
+
+> Start it please
+
+**What came back / what changed:**
+
+- This closes the "left for later" item in entry 13. A plain `npm ci` failed on
+  Windows without the C++ build tools, because npm tries to compile
+  `better-sqlite3` even though the package ships prebuilt binaries.
+- Compared the two fixes. A README note only helps someone who reads it before
+  the install fails, so I chose a project `.npmrc` with `ignore-scripts=true`. It
+  fixes the install for everyone, matches what CI already does, and runs no
+  third-party install code. Named scripts such as `npm run verify` still work.
+- Added `.npmrc` with a short comment on why, and how to rebuild one package by
+  hand if a future dependency needs its install script. Added one line to the
+  README setup step saying the scripts are off on purpose.
+- Checked in a clean clone with no `data/` folder: a plain `npm ci`, `verify`
+  (117 tests), `build`, and opening a SQLite database all work. The change does
+  not touch the app code or the database.
+- `/code-review` found nothing to change. It noted that a dependency with no
+  prebuilt binary for a platform would install fine and only fail when it first
+  loads, which the `.npmrc` comment now covers. The CI workflow keeps its own
+  `--ignore-scripts` on purpose, so CI does not depend on this file. `AGENTS.md`
+  is not part of this piece and is not staged.
+- `npm run verify` passes.
