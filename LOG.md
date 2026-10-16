@@ -391,3 +391,36 @@ planned and reviewed in Cursor.
   SQLite compares text. "É" and "é" would be two groups.
 - Backed up the local database into `data/`, which is not in git, before the
   migration runs on it. `npm run verify` and `npm run build` pass.
+
+## 13. CI (Claude Code)
+
+**Asked:**
+
+> Let's get started with the CI please
+
+**What came back / what changed:**
+
+- Added `.github/workflows/ci.yml`. On a push to `main` or `develop`, and on
+  every pull request, it installs packages and runs `npm run verify` and
+  `npm run build` on Ubuntu with Node 24. There is no deploy step, because the
+  app only runs on this computer.
+- It has read-only permissions, uses no secrets, and never uses
+  `pull_request_target`, so a pull request from a fork gets no write access. The
+  two actions are pinned to commit hashes, with the release name in a comment.
+  There is no npm cache. Next's telemetry is turned off.
+- It installs with `npm ci --ignore-scripts`. `better-sqlite3` ships a prebuilt
+  Linux binary, so nothing needs compiling, and no dependency install code runs in
+  CI. I checked this in a clean clone with no `data/` folder: install, `verify`
+  (117 tests), and `build` all pass.
+- Found while checking: a plain `npm ci` in a clean clone fails on a Windows
+  machine without the C++ build tools, because npm tries to compile
+  `better-sqlite3` even though the package ships binaries. CI avoids it with
+  `--ignore-scripts`. Left for later: whether to make that the default for
+  everyone with a project `.npmrc`, or to add a README note.
+- Left out on purpose: scheduled runs, deploys, coverage services, automatic
+  dependency updates, a Windows run, and any CI badge.
+- `/code-review` found nothing to change. A pull request from `develop` starts
+  two runs, one for the push and one for the pull request. It costs nothing on a
+  public repo, so I kept the simple triggers. The first real run happens when the
+  commit is pushed, and it has not run yet.
+- `npm run verify` and `npm run build` pass locally.
