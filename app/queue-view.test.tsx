@@ -76,6 +76,13 @@ describe("QueueView", () => {
     expect(render([task({ dueDate: "2026-10-12" })])).toContain("Overdue · Mon, Oct 12");
   });
 
+  it("shows a task with no group without a group label", () => {
+    const html = render([task({ name: "Loose chore", group: null })]);
+    expect(html).toContain("Loose chore");
+    expect(html).not.toContain("null");
+    expect(html).not.toContain("Home");
+  });
+
   it("escapes task text", () => {
     const html = render([
       task({ name: "<script>alert(1)</script>", description: "<img src=x onerror=alert(1)>" }),

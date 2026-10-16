@@ -347,3 +347,47 @@ planned and reviewed in Cursor.
   is not part of this piece and is not staged.
 - `npm run verify` and `npm run build` pass. The build rewrote `next-env.d.ts`
   to its build-time form, so I restored the committed dev-server version.
+
+## 12. Optional groups and color slots (Claude Code)
+
+**Asked:**
+
+> Let's get started with the next step please
+
+**What came back / what changed:**
+
+- Worked on Opus at high effort, as planned in entry 3. This is stop 2 of the UI
+  build order: the data layer and the theme colors, with no new screen. The
+  stack view, the add dialog, and the swatch grid build on it later.
+- Migration 3 creates `task_group` (a name compared without case, and a color
+  slot from 1 to 8 that no other group can share). It then rebuilds `task` so
+  `group_name` is optional and must name a group. Existing groups are moved in
+  with one row per name ignoring case, keeping the first spelling used, and
+  colors 1 to 8 in order of first use. It stops with a clear sentence if a
+  database has more than 8 groups, and it checks the task count and the foreign
+  keys before it finishes. A migration can now be a function as well as SQL.
+- A group is optional. Empty text means no group, and such a task uses the
+  theme's base card colors.
+- Each write is one transaction. Creating a task in a new group adds the group
+  and the task. Editing or deleting a task removes its old group if no task uses
+  it, which frees the color. Moving the last task of a group to a new group frees
+  the old color first, so it works even when all 8 colors are taken. A ninth group
+  and a color already taken are refused with one fixed sentence (`GroupError`).
+  `setGroupColor` recolors one group. `listGroups` now reads from `task_group`,
+  so "Garden" and "garden" are one group and suggestions are no longer
+  case-sensitive.
+- `lib/theme.ts` holds the 8-color count and the color names. `app/globals.css`
+  now has one block for the warm theme, with the base colors, the card colors,
+  and `--group-1` to `--group-8` with matching text colors. `app/layout.tsx` sets
+  `data-theme`. A test reads the CSS and checks 8 different colors, none equal to
+  a base color, and AA contrast.
+- `/code-review` found nothing that breaks the rules. I fixed two things: the
+  limit sentence now uses the color count instead of a typed 8, and the default
+  theme is also set on `:root`, so a page without `data-theme` still has colors.
+  `/security-review` found nothing. Server actions must catch `GroupError` and
+  the Zod error and return the sentence when they are added in the add-a-task
+  stop.
+- The match ignoring case covers plain English letters only, because that is how
+  SQLite compares text. "É" and "é" would be two groups.
+- Backed up the local database into `data/`, which is not in git, before the
+  migration runs on it. `npm run verify` and `npm run build` pass.

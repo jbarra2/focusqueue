@@ -1,10 +1,37 @@
-:root {
+/* One block per theme. A theme defines its base colors and all 8 group slots. A group stores
+   only a slot number, so a chosen color stays on theme when the theme changes. The base colors
+   are never group colors. The default theme is also set on :root, so a page without data-theme
+   still has colors. A theme's attribute selector is more specific and wins. */
+:root,
+:root[data-theme="warm"] {
   --color-bg: #fafaf7;
   --color-text: #1c1c1a;
   --color-muted: #5c5c57;
   --color-border: #d6d6cf;
   --color-accent: #1d4ed8;
   --color-danger: #b42318;
+
+  /* A card with no group. */
+  --card-bg: #ffffff;
+  --card-ink: #1c1c1a;
+
+  /* Group slots 1 to 8: Terracotta, Mustard, Sage, Teal, Sky, Lavender, Rose, Sand. */
+  --group-1: #e8b4a0;
+  --group-1-ink: #2a2118;
+  --group-2: #ecd27a;
+  --group-2-ink: #2a2118;
+  --group-3: #b5cdb0;
+  --group-3-ink: #2a2118;
+  --group-4: #8fcfc9;
+  --group-4-ink: #2a2118;
+  --group-5: #a9c8ee;
+  --group-5-ink: #2a2118;
+  --group-6: #cdbdea;
+  --group-6-ink: #2a2118;
+  --group-7: #f0b3c4;
+  --group-7-ink: #2a2118;
+  --group-8: #dcc9a6;
+  --group-8-ink: #2a2118;
 }
 
 *,
