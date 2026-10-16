@@ -38,8 +38,8 @@ export function QueueView({ queue, today }: { queue: Queue; today: string }) {
     <>
       <section aria-labelledby="focus-heading" className="focus-card">
         <h2 id="focus-heading">Do now</h2>
-        {queue.focus ? (
-          <TaskItem task={queue.focus} today={today} />
+        {queue.doNow ? (
+          <TaskItem task={queue.doNow} today={today} />
         ) : (
           <p className="empty">The week is clear.</p>
         )}

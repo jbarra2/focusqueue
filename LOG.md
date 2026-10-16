@@ -315,3 +315,35 @@ planned and reviewed in Cursor.
   refactor. `next dev` also changed a heading level in `AGENTS.md`. That is not
   part of this piece and is not staged.
 - `npm run verify` passes.
+
+## 11. Rename course to group (Claude Code)
+
+**Asked:**
+
+> Continue
+
+**What came back / what changed:**
+
+- Next step was stop 1 of the UI build order: a refactor with no change in
+  behavior, so the optional-group work starts from the general names. A group
+  is still required in this piece.
+- Migration 2 renames the `course` column to `group_name`
+  (`ALTER TABLE task RENAME COLUMN`). Migration 1 is untouched, and the column
+  keeps its NOT NULL and non-empty CHECK. A new test builds a version 1
+  database with a row, migrates it, and checks that the row survives under the
+  new name and that a blank group is still rejected.
+- `Task.course` became `Task.group`, the Zod field and its messages say
+  "group", and `listCourses` became `listGroups`. SQL still uses `?`
+  placeholders only.
+- `Queue.focus` became `Queue.doNow`, matching the Do now term in the rules.
+  The `focus-card` class and `focus-heading` id stay for now, because the stack
+  view replaces that markup.
+- The page description and `package.json` description no longer say "school".
+  Test data is neutral: made-up chores, reports, and groups like "Home".
+- `/code-review` found nothing to fix here. It flagged three things that belong
+  to the next piece: group is still required, there is no `task_group` table
+  yet, and group suggestions are still case-sensitive. The next stop covers all
+  three. It also flagged the `AGENTS.md` heading that `next dev` rewrites. That
+  is not part of this piece and is not staged.
+- `npm run verify` and `npm run build` pass. The build rewrote `next-env.d.ts`
+  to its build-time form, so I restored the committed dev-server version.

@@ -7,7 +7,7 @@ import type { Difficulty, Task } from "./task";
 export type Bucket = "dueSoon" | "restOfWeek" | "later";
 
 export type Queue = {
-  focus: Task | null;
+  doNow: Task | null;
   dueSoon: Task[];
   restOfWeek: Task[];
   later: Task[];
@@ -115,6 +115,6 @@ export function buildQueue(tasks: Task[], today: string): Queue {
     })
     .sort(byCompletedDesc);
 
-  // Later never takes the focus card.
-  return { focus: dueSoon[0] ?? restOfWeek[0] ?? null, dueSoon, restOfWeek, later, done };
+  // Later is never Do now.
+  return { doNow: dueSoon[0] ?? restOfWeek[0] ?? null, dueSoon, restOfWeek, later, done };
 }

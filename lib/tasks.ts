@@ -9,7 +9,7 @@ import { taskIdSchema, taskInputSchema, type TaskInput } from "./task-schema";
 type TaskRow = {
   id: string;
   name: string;
-  course: string;
+  group_name: string;
   description: string;
   due_date: string;
   difficulty: Difficulty;
@@ -21,7 +21,7 @@ function toTask(row: TaskRow): Task {
   return {
     id: row.id,
     name: row.name,
-    course: row.course,
+    group: row.group_name,
     description: row.description,
     dueDate: row.due_date,
     difficulty: row.difficulty,
@@ -39,19 +39,19 @@ function parseId(id: unknown): string | null {
 export function listTasks(db: Database): Task[] {
   const rows = db
     .prepare(
-      `SELECT id, name, course, description, due_date, difficulty, created_at, completed_at
+      `SELECT id, name, group_name, description, due_date, difficulty, created_at, completed_at
        FROM task ORDER BY due_date, created_at`,
     )
     .all() as TaskRow[];
   return rows.map(toTask);
 }
 
-/** Course names already used, for suggestions. */
-export function listCourses(db: Database): string[] {
+/** Group names already used, for suggestions. */
+export function listGroups(db: Database): string[] {
   const rows = db
-    .prepare(`SELECT DISTINCT course FROM task ORDER BY course COLLATE NOCASE`)
-    .all() as { course: string }[];
-  return rows.map((row) => row.course);
+    .prepare(`SELECT DISTINCT group_name FROM task ORDER BY group_name COLLATE NOCASE`)
+    .all() as { group_name: string }[];
+  return rows.map((row) => row.group_name);
 }
 
 /** Adds a task. Throws a ZodError if the input is invalid. */
@@ -63,12 +63,12 @@ export function createTask(
   const data = taskInputSchema.parse(input);
   const task: Task = { id: crypto.randomUUID(), ...data, createdAt: now, completedAt: null };
   db.prepare(
-    `INSERT INTO task (id, name, course, description, due_date, difficulty, created_at, completed_at)
+    `INSERT INTO task (id, name, group_name, description, due_date, difficulty, created_at, completed_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, NULL)`,
   ).run(
     task.id,
     task.name,
-    task.course,
+    task.group,
     task.description,
     task.dueDate,
     task.difficulty,
@@ -84,10 +84,10 @@ export function updateTask(db: Database, id: string, input: TaskInput): boolean 
   if (taskId === null) return false;
   const result = db
     .prepare(
-      `UPDATE task SET name = ?, course = ?, description = ?, due_date = ?, difficulty = ?
+      `UPDATE task SET name = ?, group_name = ?, description = ?, due_date = ?, difficulty = ?
        WHERE id = ?`,
     )
-    .run(data.name, data.course, data.description, data.dueDate, data.difficulty, taskId);
+    .run(data.name, data.group, data.description, data.dueDate, data.difficulty, taskId);
   return result.changes > 0;
 }
 

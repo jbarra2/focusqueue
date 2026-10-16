@@ -10,7 +10,7 @@ function task(overrides: Partial<Task>): Task {
   return {
     id: crypto.randomUUID(),
     name: "Task",
-    course: "Physics",
+    group: "Home",
     description: "",
     dueDate: "2026-10-14",
     difficulty: "med",
@@ -32,13 +32,13 @@ function sectionOf(html: string, headingId: string): string {
 }
 
 describe("QueueView", () => {
-  it("puts the first Due soon task on the focus card", () => {
+  it("puts the first Due soon task on the Do now card", () => {
     const html = render([
       task({ name: "Rest of week", dueDate: "2026-10-16" }),
-      task({ name: "Overdue lab", dueDate: "2026-10-12" }),
+      task({ name: "Overdue chore", dueDate: "2026-10-12" }),
     ]);
     const focus = sectionOf(html, "focus-heading");
-    expect(focus).toContain("Overdue lab");
+    expect(focus).toContain("Overdue chore");
     expect(focus).not.toContain("Rest of week");
   });
 
@@ -53,14 +53,14 @@ describe("QueueView", () => {
   it("lists a task done this week under Done, not as overdue", () => {
     const completedAt = new Date(2026, 9, 13, 18, 0).toISOString(); // Tuesday evening, local
     const html = render([
-      task({ name: "Finished lab", dueDate: "2026-10-12", completedAt }),
-      task({ name: "Open lab", dueDate: "2026-10-16" }),
+      task({ name: "Finished chore", dueDate: "2026-10-12", completedAt }),
+      task({ name: "Open chore", dueDate: "2026-10-16" }),
     ]);
     const done = sectionOf(html, "done-heading");
-    expect(done).toContain("Finished lab");
+    expect(done).toContain("Finished chore");
     expect(done).toContain("Done Tue, Oct 13");
     expect(done).not.toContain("Overdue");
-    expect(sectionOf(html, "due-soon-heading")).not.toContain("Finished lab");
+    expect(sectionOf(html, "due-soon-heading")).not.toContain("Finished chore");
   });
 
   it("lists the sections in page order", () => {

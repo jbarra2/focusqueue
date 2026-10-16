@@ -3,7 +3,7 @@ export type Difficulty = "low" | "med" | "high";
 export type Task = {
   id: string;
   name: string;
-  course: string;
+  group: string;
   description: string;
   /** Calendar day as YYYY-MM-DD. */
   dueDate: string;

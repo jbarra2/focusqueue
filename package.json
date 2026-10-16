@@ -2,7 +2,7 @@
   "name": "focusqueue",
   "private": true,
   "version": "0.1.0",
-  "description": "A queue for one school week, for one person on this computer",
+  "description": "A queue for one week, for one person on this computer",
   "engines": {
     "node": "24.x"
   },

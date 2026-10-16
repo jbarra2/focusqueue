@@ -12,7 +12,7 @@ function task(overrides: Partial<Task> & { name: string }): Task {
   counter += 1;
   return {
     id: `id-${counter}`,
-    course: "Made-up course",
+    group: "Made-up group",
     description: "",
     dueDate: WEDNESDAY,
     difficulty: "med" as Difficulty,
@@ -75,7 +75,7 @@ describe("Due soon order", () => {
       WEDNESDAY,
     );
     expect(names(queue.dueSoon)).toEqual(["overdue", "today", "tomorrow"]);
-    expect(queue.focus?.name).toBe("overdue");
+    expect(queue.doNow?.name).toBe("overdue");
   });
 
   it("orders low, med, high on the same date", () => {
@@ -133,23 +133,23 @@ describe("Rest of this week order", () => {
     ]);
   });
 
-  it("takes the focus card when Due soon is empty", () => {
+  it("takes Do now when Due soon is empty", () => {
     const queue = buildQueue([task({ name: "friday", dueDate: "2026-10-16" })], WEDNESDAY);
-    expect(queue.focus?.name).toBe("friday");
+    expect(queue.doNow?.name).toBe("friday");
   });
 });
 
 describe("Later", () => {
-  it("never takes the focus card", () => {
+  it("is never Do now", () => {
     const queue = buildQueue(
       [task({ name: "next week", dueDate: "2026-10-26", difficulty: "low" })],
       WEDNESDAY,
     );
     expect(names(queue.later)).toEqual(["next week"]);
-    expect(queue.focus).toBeNull();
+    expect(queue.doNow).toBeNull();
   });
 
-  it("holds a task due after Sunday while an earlier one holds focus", () => {
+  it("holds a task due after Sunday while an earlier one is Do now", () => {
     const queue = buildQueue(
       [
         task({ name: "later", dueDate: "2026-10-20", difficulty: "low" }),
@@ -157,7 +157,7 @@ describe("Later", () => {
       ],
       WEDNESDAY,
     );
-    expect(queue.focus?.name).toBe("soon");
+    expect(queue.doNow?.name).toBe("soon");
     expect(names(queue.later)).toEqual(["later"]);
   });
 });
@@ -173,14 +173,14 @@ describe("a Sunday", () => {
     );
     expect(names(queue.dueSoon)).toEqual(["monday"]);
     expect(names(queue.later)).toEqual(["tuesday"]);
-    expect(queue.focus?.name).toBe("monday");
+    expect(queue.doNow?.name).toBe("monday");
   });
 });
 
 describe("an empty week", () => {
-  it("has no focus task", () => {
+  it("has no Do now task", () => {
     const queue = buildQueue([], WEDNESDAY);
-    expect(queue).toEqual({ focus: null, dueSoon: [], restOfWeek: [], later: [], done: [] });
+    expect(queue).toEqual({ doNow: null, dueSoon: [], restOfWeek: [], later: [], done: [] });
   });
 });
 
@@ -199,11 +199,11 @@ describe("Done", () => {
     expect(names(queue.dueSoon)).toEqual(["open"]);
   });
 
-  it("does not let a completed overdue task take the focus card", () => {
+  it("does not let a completed overdue task be Do now", () => {
     const queue = buildQueue(
       [task({ name: "finished", dueDate: "2026-10-01", completedAt: localNoon(WEDNESDAY) })],
       WEDNESDAY,
     );
-    expect(queue.focus).toBeNull();
+    expect(queue.doNow).toBeNull();
   });
 });

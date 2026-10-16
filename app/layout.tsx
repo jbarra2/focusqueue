@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Focusqueue",
-  description: "A queue for one school week.",
+  description: "A queue for one week.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

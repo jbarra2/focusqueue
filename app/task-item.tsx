@@ -10,7 +10,7 @@ export function TaskItem({ task, today }: { task: Task; today: string }) {
     <>
       <p className="task-name">{task.name}</p>
       <p className="task-meta">
-        <span>{task.course}</span>
+        <span>{task.group}</span>
         {task.completedAt === null ? (
           <span className={overdue ? "overdue" : undefined}>{dueLabel(task.dueDate, today)}</span>
         ) : (

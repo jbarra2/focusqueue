@@ -6,7 +6,7 @@ import { migrate, migrations } from "./migrations";
 const VALID = {
   id: "00000000-0000-4000-8000-000000000001",
   name: "Made-up reading",
-  course: "Made-up course",
+  group_name: "Made-up group",
   description: "",
   due_date: "2026-10-14",
   difficulty: "low",
@@ -19,12 +19,12 @@ function insert(
 ) {
   const row = { ...VALID, ...overrides };
   db.prepare(
-    `INSERT INTO task (id, name, course, description, due_date, difficulty, created_at)
+    `INSERT INTO task (id, name, group_name, description, due_date, difficulty, created_at)
      VALUES (?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     row.id,
     row.name,
-    row.course,
+    row.group_name,
     row.description,
     row.due_date,
     row.difficulty,
@@ -51,6 +51,27 @@ describe("migrate", () => {
     db.pragma(`user_version = ${migrations.length + 1}`);
     expect(() => migrate(db)).toThrow();
   });
+
+  it("renames course to group_name and keeps existing rows and checks", () => {
+    const db = new BetterSqlite3(":memory:");
+    db.exec(migrations[0]);
+    db.pragma("user_version = 1");
+    db.prepare(
+      `INSERT INTO task (id, name, course, description, due_date, difficulty, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    ).run(VALID.id, VALID.name, "Old course value", "", VALID.due_date, "low", VALID.created_at);
+
+    migrate(db);
+
+    expect(db.pragma("user_version", { simple: true })).toBe(migrations.length);
+    expect(db.prepare("SELECT group_name FROM task").get()).toEqual({
+      group_name: "Old course value",
+    });
+    expect(() =>
+      insert(db, { id: "00000000-0000-4000-8000-000000000002", group_name: " " }),
+    ).toThrow();
+    expect(db.prepare("SELECT count(*) AS n FROM task").get()).toEqual({ n: 1 });
+  });
 });
 
 describe("task CHECK constraints", () => {
@@ -62,8 +83,8 @@ describe("task CHECK constraints", () => {
   it.each([
     ["an empty name", { name: "" }],
     ["a blank name", { name: "   " }],
-    ["an empty course", { course: "" }],
-    ["a blank course", { course: " \t" }],
+    ["an empty group", { group_name: "" }],
+    ["a blank group", { group_name: " \t" }],
     ["an unknown difficulty", { difficulty: "medium" }],
     ["a date without padding", { due_date: "2026-2-3" }],
     ["a date that does not exist", { due_date: "2026-02-30" }],

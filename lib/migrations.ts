@@ -18,6 +18,9 @@ export const migrations: readonly string[] = [
     created_at TEXT NOT NULL,
     completed_at TEXT
   ) STRICT`,
+  // The app is not tied to one field, so a task's course is now its group. The column keeps
+  // its NOT NULL and CHECK constraints under the new name.
+  `ALTER TABLE task RENAME COLUMN course TO group_name`,
 ];
 
 /** Applies every pending migration in one transaction. A failure leaves the schema as it was. */

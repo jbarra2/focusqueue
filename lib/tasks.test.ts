@@ -4,7 +4,7 @@ import { openDatabase } from "./db";
 import {
   createTask,
   deleteTask,
-  listCourses,
+  listGroups,
   listTasks,
   markDone,
   markOpen,
@@ -13,8 +13,8 @@ import {
 import type { TaskInput } from "./task-schema";
 
 const INPUT: TaskInput = {
-  name: "Made-up problem set",
-  course: "Made-up course",
+  name: "Made-up report",
+  group: "Made-up group",
   description: "Chapters 1 and 2",
   dueDate: "2026-10-16",
   difficulty: "med",
@@ -41,7 +41,7 @@ describe("createTask and listTasks", () => {
       {
         id: task.id,
         name: INPUT.name,
-        course: INPUT.course,
+        group: INPUT.group,
         description: INPUT.description,
         dueDate: INPUT.dueDate,
         difficulty: INPUT.difficulty,
@@ -52,8 +52,8 @@ describe("createTask and listTasks", () => {
   });
 
   it("trims text and defaults the description to empty", () => {
-    const task = createTask(db, { ...INPUT, name: "  Essay  ", description: undefined }, NOW);
-    expect(task.name).toBe("Essay");
+    const task = createTask(db, { ...INPUT, name: "  Letter  ", description: undefined }, NOW);
+    expect(task.name).toBe("Letter");
     expect(listTasks(db)[0].description).toBe("");
   });
 
@@ -65,7 +65,7 @@ describe("createTask and listTasks", () => {
 
   it.each([
     ["an empty name", { name: "" }],
-    ["a blank course", { course: "   " }],
+    ["a blank group", { group: "   " }],
     ["a bad difficulty", { difficulty: "hard" }],
     ["a date that does not exist", { dueDate: "2026-02-30" }],
     ["a date without padding", { dueDate: "2026-2-3" }],
@@ -148,11 +148,11 @@ describe("markDone and markOpen", () => {
   });
 });
 
-describe("listCourses", () => {
-  it("lists each course once, sorted without regard to case", () => {
-    createTask(db, { ...INPUT, course: "physics" }, NOW);
-    createTask(db, { ...INPUT, course: "Algebra" }, NOW);
-    createTask(db, { ...INPUT, course: "physics" }, NOW);
-    expect(listCourses(db)).toEqual(["Algebra", "physics"]);
+describe("listGroups", () => {
+  it("lists each group once, sorted without regard to case", () => {
+    createTask(db, { ...INPUT, group: "garden" }, NOW);
+    createTask(db, { ...INPUT, group: "Errands" }, NOW);
+    createTask(db, { ...INPUT, group: "garden" }, NOW);
+    expect(listGroups(db)).toEqual(["Errands", "garden"]);
   });
 });

@@ -4,11 +4,11 @@ import { z } from "zod";
 
 export const taskInputSchema = z.object({
   name: z.string().trim().min(1, "Enter a name.").max(200, "Keep the name under 200 characters."),
-  course: z
+  group: z
     .string()
     .trim()
-    .min(1, "Enter a course.")
-    .max(100, "Keep the course under 100 characters."),
+    .min(1, "Enter a group.")
+    .max(100, "Keep the group under 100 characters."),
   description: z
     .string()
     .trim()
