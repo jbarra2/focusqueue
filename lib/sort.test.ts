@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addDays, bucketOf, buildQueue, endOfWeek, startOfWeek } from "./sort";
+import { addDays, bucketOf, buildQueue, endOfWeek, startOfWeek, upNext } from "./sort";
 import type { Difficulty, Task } from "./task";
 
 // 2026-10-14 is a Wednesday. Its week runs 2026-10-12 to 2026-10-18.
@@ -205,5 +205,148 @@ describe("Done", () => {
       WEDNESDAY,
     );
     expect(queue.doNow).toBeNull();
+  });
+});
+
+describe("Up next", () => {
+  it("lists every open task in queue order: Due soon, Rest of this week, then Later", () => {
+    const queue = buildQueue(
+      [
+        task({ name: "later", dueDate: "2026-10-26" }),
+        task({ name: "friday", dueDate: "2026-10-16" }),
+        task({ name: "overdue", dueDate: "2026-10-01" }),
+        task({ name: "today", dueDate: WEDNESDAY, difficulty: "low" }),
+      ],
+      WEDNESDAY,
+    );
+    expect(names(upNext(queue))).toEqual(["overdue", "today", "friday", "later"]);
+  });
+
+  it("starts with Do now when there is one", () => {
+    const queue = buildQueue([task({ name: "friday", dueDate: "2026-10-16" })], WEDNESDAY);
+    expect(upNext(queue)[0]).toBe(queue.doNow);
+  });
+
+  it("starts with a Later task when nothing else is open, and Do now stays empty", () => {
+    const queue = buildQueue([task({ name: "next week", dueDate: "2026-10-26" })], WEDNESDAY);
+    expect(names(upNext(queue))).toEqual(["next week"]);
+    expect(queue.doNow).toBeNull();
+  });
+
+  it("leaves out done tasks", () => {
+    const queue = buildQueue(
+      [
+        task({ name: "finished", completedAt: localNoon(WEDNESDAY) }),
+        task({ name: "open", dueDate: WEDNESDAY }),
+      ],
+      WEDNESDAY,
+    );
+    expect(names(upNext(queue))).toEqual(["open"]);
+  });
+
+  it("is empty for an empty week", () => {
+    expect(upNext(buildQueue([], WEDNESDAY))).toEqual([]);
+  });
+});
+
+describe("ties", () => {
+  it("sorts tasks created in the same millisecond by id, whatever order they arrive in", () => {
+    const same = "2026-10-02T08:00:00.000Z";
+    const first = task({ name: "first", id: "aaa", createdAt: same });
+    const second = task({ name: "second", id: "bbb", createdAt: same });
+    expect(names(buildQueue([second, first], WEDNESDAY).dueSoon)).toEqual(["first", "second"]);
+    expect(names(buildQueue([first, second], WEDNESDAY).dueSoon)).toEqual(["first", "second"]);
+  });
+
+  it("sorts tasks completed at the same moment by id", () => {
+    const at = localNoon(WEDNESDAY);
+    const a = task({ name: "a", id: "aaa", completedAt: at });
+    const b = task({ name: "b", id: "bbb", completedAt: at });
+    expect(names(buildQueue([b, a], WEDNESDAY).done)).toEqual(["a", "b"]);
+  });
+
+  it("leaves the tasks it is given in their order", () => {
+    const tasks = [
+      task({ name: "later", dueDate: "2026-10-26" }),
+      task({ name: "today", dueDate: WEDNESDAY }),
+    ];
+    buildQueue(tasks, WEDNESDAY);
+    expect(names(tasks)).toEqual(["later", "today"]);
+  });
+});
+
+describe("other days of the week", () => {
+  it("on a Saturday, Sunday is due tomorrow and Monday is Later", () => {
+    const queue = buildQueue(
+      [task({ name: "sunday", dueDate: SUNDAY }), task({ name: "monday", dueDate: "2026-10-19" })],
+      "2026-10-17",
+    );
+    expect(names(queue.dueSoon)).toEqual(["sunday"]);
+    expect(names(queue.restOfWeek)).toEqual([]);
+    expect(names(queue.later)).toEqual(["monday"]);
+  });
+
+  it("on a Monday, today and tomorrow are Due soon, the rest of the week follows, and next Monday is Later", () => {
+    const queue = buildQueue(
+      [
+        task({ name: "mon", dueDate: "2026-10-12" }),
+        task({ name: "tue", dueDate: "2026-10-13" }),
+        task({ name: "wed", dueDate: "2026-10-14" }),
+        task({ name: "sun", dueDate: SUNDAY }),
+        task({ name: "next monday", dueDate: "2026-10-19" }),
+      ],
+      "2026-10-12",
+    );
+    expect(names(queue.dueSoon)).toEqual(["mon", "tue"]);
+    expect(names(queue.restOfWeek)).toEqual(["wed", "sun"]);
+    expect(names(queue.later)).toEqual(["next monday"]);
+  });
+
+  it("crosses a month and a year without losing a day", () => {
+    // 2026-12-31 is a Thursday. Its week ends on Sunday 2027-01-03.
+    const queue = buildQueue(
+      [
+        task({ name: "new year", dueDate: "2027-01-01" }),
+        task({ name: "sunday", dueDate: "2027-01-03" }),
+        task({ name: "monday", dueDate: "2027-01-04" }),
+      ],
+      "2026-12-31",
+    );
+    expect(names(queue.dueSoon)).toEqual(["new year"]);
+    expect(names(queue.restOfWeek)).toEqual(["sunday"]);
+    expect(names(queue.later)).toEqual(["monday"]);
+  });
+
+  it("takes a leap day as a real day", () => {
+    // 2028-02-29 is a Tuesday.
+    const queue = buildQueue([task({ name: "leap", dueDate: "2028-02-29" })], "2028-02-28");
+    expect(names(queue.dueSoon)).toEqual(["leap"]);
+  });
+});
+
+describe("the edges of the week for Done", () => {
+  const local = (y: number, m: number, d: number, h: number, min: number) =>
+    new Date(y, m - 1, d, h, min).toISOString();
+
+  it("counts the first minute of Monday and the last minute of Sunday as this week", () => {
+    const queue = buildQueue(
+      [
+        task({ name: "monday start", completedAt: local(2026, 10, 12, 0, 0) }),
+        task({ name: "sunday end", completedAt: local(2026, 10, 18, 23, 59) }),
+      ],
+      WEDNESDAY,
+    );
+    expect(names(queue.done)).toEqual(["sunday end", "monday start"]);
+  });
+
+  it("leaves out the last minute of the week before and the first minute of the week after", () => {
+    const queue = buildQueue(
+      [
+        task({ name: "before", completedAt: local(2026, 10, 11, 23, 59) }),
+        task({ name: "after", completedAt: local(2026, 10, 19, 0, 0) }),
+      ],
+      WEDNESDAY,
+    );
+    expect(names(queue.done)).toEqual([]);
   });
 });

@@ -8,8 +8,9 @@ The app listens on `127.0.0.1` only. There is no login, so only this computer ca
 
 1. Install Node 24. With nvm, run `nvm use` in this folder.
 2. Install packages: `npm install`. Dependency install scripts are off on purpose, because `better-sqlite3` ships prebuilt binaries (see `.npmrc`).
-3. Start the app: `npm run dev`, then open <http://127.0.0.1:3000>
-4. Check your work: `npm run verify` runs typecheck, lint, format check, and tests.
+3. Turn off Next.js telemetry on this computer, once: `npx next telemetry disable`
+4. Start the app: `npm run dev`, then open <http://127.0.0.1:3000>
+5. Check your work: `npm run verify` runs typecheck, lint, format check, and tests.
 
 ## Scripts
 

@@ -15,6 +15,9 @@
   --card-bg: #ffffff;
   --card-ink: #1c1c1a;
 
+  /* A light wash behind the description box, so the box reads as a text area on any card. */
+  --card-well: rgb(255 255 255 / 0.35);
+
   /* Group slots 1 to 8: Terracotta, Mustard, Sage, Teal, Sky, Lavender, Rose, Sand. */
   --group-1: #e8b4a0;
   --group-1-ink: #2a2118;
@@ -48,10 +51,29 @@ body {
   line-height: 1.5;
 }
 
+/* A full-height column: the header stays at the top, and the card stack centers in the space
+   below it. The stack and the "week is clear" message use auto margins to do that. */
 main {
-  max-width: 40rem;
-  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  min-height: 100dvh;
   padding: 1.5rem 1rem;
+}
+
+main > .empty {
+  margin-block: auto;
+  text-align: center;
+}
+
+/* The error page has a button directly in main. In a column it would stretch across the page. */
+main > button {
+  align-self: flex-start;
+}
+
+/* The same message above the stack, when only Later tasks are open. */
+.stack > .empty {
+  text-align: center;
 }
 
 :focus-visible {
@@ -74,44 +96,13 @@ button {
   padding: 0.5rem 1rem;
 }
 
-.focus-card {
-  padding: 1rem 1.25rem;
-  border: 2px solid var(--color-accent);
-  border-radius: 0.5rem;
-}
-
-.focus-card h2 {
-  margin-top: 0;
-}
-
-.task-list {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.task-list li {
-  padding: 0.75rem 0;
-  border-bottom: 1px solid var(--color-border);
-}
-
 .task-name {
   margin: 0;
   font-weight: 600;
   overflow-wrap: anywhere;
 }
 
-.task-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.25rem 1rem;
-  margin: 0;
-  color: var(--color-muted);
-  font-size: 0.875rem;
-}
-
 .task-description {
-  margin: 0.25rem 0 0;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
@@ -122,6 +113,334 @@ button {
 }
 
 .empty {
-  margin: 0;
+  margin: 0 0 1rem;
   color: var(--color-muted);
+}
+
+/* The card stack. The focus card (the name card) is centered, and the info card sits to its
+   left. Both sides of the stack are flat and mirror each other: past cards tuck behind the info
+   card and upcoming cards tuck behind the focus card. The first card on each side sticks out
+   --peek so it is easy to see and click, and each further card shows --stack-step more.
+   Position comes from --d, the number of cards between a card and the focus card. Which card
+   has focus is decided in the component. */
+.stack {
+  width: 100%;
+  margin-block: auto;
+  --card-w: min(16rem, 70vw);
+  --gap: 1rem; /* between the info card and the focus card */
+  --peek: 4rem; /* how far the first card on each side sticks out */
+  --stack-step: 1.5rem; /* how far each further card on each side shows */
+  /* Where the first past card starts, measured left of the center of the stage. */
+  --past-base: calc(var(--card-w) / 2 + var(--peek));
+}
+
+.stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.track {
+  position: relative;
+  width: 100%;
+  height: 12rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow: hidden;
+  /* clip, not hidden: hidden can still be scrolled by focus, which would shift the whole stack
+     when a card that is partly outside the track is tabbed to. */
+  overflow: clip;
+}
+
+.slot {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: var(--card-w);
+  height: 100%;
+  z-index: calc(50 - var(--d));
+  transition:
+    transform 180ms ease,
+    visibility 180ms;
+}
+
+.slot[data-side="current"] {
+  z-index: 100;
+  transform: translateX(calc(var(--card-w) / -2));
+}
+
+/* Behind the focus card: its right end sticks out --peek, then --stack-step more for each card. */
+.slot[data-side="upcoming"] {
+  transform: translateX(
+    calc(var(--card-w) / -2 + var(--peek) + (var(--d) - 1) * var(--stack-step))
+  );
+}
+
+/* The mirror of the above: its left end sticks out --peek past the card it tucks behind. */
+.slot[data-side="past"] {
+  transform: translateX(calc(-1 * (var(--past-base) + (var(--d) - 1) * var(--stack-step))));
+}
+
+/* Cards far from the focus card are hidden, which also takes them out of the tab order. */
+.slot[data-far] {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.card {
+  display: block;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 1rem;
+  overflow: auto;
+  border: 2px solid var(--color-border);
+  border-radius: 0.75rem;
+  background: var(--card-bg);
+  color: var(--card-ink);
+  font: inherit;
+  text-align: left;
+}
+
+.stacked-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+/* A card reached by keyboard comes in front of the other stacked cards, but stays behind the
+   focus card (100) and the info card (200). Its focus ring is drawn inside the card, because the
+   track clips anything outside it. The focus card does the same. */
+.slot:not([data-side="current"]):focus-within {
+  z-index: 90;
+}
+
+.stacked-card:focus-visible {
+  outline-offset: -4px;
+}
+
+.name-card:focus-visible {
+  outline-offset: -6px;
+}
+
+/* aria-disabled keeps the button focusable, so focus is not lost at the ends of the stack. */
+.stack-controls button[aria-disabled="true"] {
+  color: var(--color-muted);
+  cursor: default;
+}
+
+.name-card {
+  border-color: var(--color-accent);
+}
+
+/* The info card does not scroll as a whole. Only the description does, in its own box, so the
+   group, due date, and difficulty stay in view. Its height is fixed, so the stack does not jump
+   up and down as the focus moves between tasks with short and long descriptions. */
+.info-card {
+  display: flex;
+  flex-direction: column;
+  width: var(--card-w);
+  height: 24rem;
+  overflow: hidden;
+}
+
+/* Only the description gives up height when the card is full. The heading and the name keep it. */
+.info-card h2,
+.info-card .task-name {
+  flex-shrink: 0;
+}
+
+.info-card h2 {
+  margin: 0 0 0.25rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+/* The full name is on the focus card, so a very long one is cut to two lines here. */
+.info-card .task-name {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+}
+
+.info-card dl {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  margin: 0.5rem 0 0;
+}
+
+.info-card dt {
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+/* A group name can be one long word, so values wrap anywhere instead of running out of the card. */
+.info-card dd {
+  margin: 0 0 0.5rem;
+  overflow-wrap: anywhere;
+}
+
+/* A long group name is cut to two lines, so it cannot push the description box out of the card.
+   The labels and values above the description keep their height when the card is full. */
+.info-card .info-group {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+}
+
+.info-card dt,
+.info-card dd:not(:last-child) {
+  flex-shrink: 0;
+}
+
+/* The description is the last item: it takes the height that is left and scrolls inside it. */
+.info-card dd:last-child {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  margin-bottom: 0;
+}
+
+.info-description {
+  flex: 1;
+  min-height: 3rem;
+  padding: 0.5rem;
+  overflow-y: auto;
+  border: 1px solid color-mix(in srgb, currentColor 40%, transparent);
+  border-radius: 0.5rem;
+  background: var(--card-well);
+}
+
+.info-description:focus-visible {
+  outline-offset: -3px;
+}
+
+.badge {
+  display: inline-block;
+  margin: 0 0 0.25rem;
+  padding: 0 0.5rem;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+/* On a group card the overdue color may not contrast with the card, so the words and the
+   underline carry the meaning there. A card with no group keeps the overdue color. */
+.card[data-slot] .overdue {
+  color: inherit;
+  text-decoration: underline;
+}
+
+.card[data-slot="1"] {
+  background: var(--group-1);
+  color: var(--group-1-ink);
+}
+
+.card[data-slot="2"] {
+  background: var(--group-2);
+  color: var(--group-2-ink);
+}
+
+.card[data-slot="3"] {
+  background: var(--group-3);
+  color: var(--group-3-ink);
+}
+
+.card[data-slot="4"] {
+  background: var(--group-4);
+  color: var(--group-4-ink);
+}
+
+.card[data-slot="5"] {
+  background: var(--group-5);
+  color: var(--group-5-ink);
+}
+
+.card[data-slot="6"] {
+  background: var(--group-6);
+  color: var(--group-6-ink);
+}
+
+.card[data-slot="7"] {
+  background: var(--group-7);
+  color: var(--group-7-ink);
+}
+
+.card[data-slot="8"] {
+  background: var(--group-8);
+  color: var(--group-8-ink);
+}
+
+.stack-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.stack-status {
+  margin: 0;
+  min-width: 5rem;
+  text-align: center;
+}
+
+/* Text for screen readers only. It takes no room and is not drawn. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* Wide enough for the info card to sit left of the focus card, with the first past card
+   sticking out beyond it: about 3 cards, the gaps, and the peek on each side of the center. */
+@media (min-width: 60rem) {
+  .stack {
+    --past-base: calc(var(--card-w) * 1.5 + var(--gap) + var(--peek));
+  }
+
+  .stage {
+    display: block;
+    position: relative;
+    height: 24rem;
+  }
+
+  .track {
+    position: absolute;
+    inset: 0;
+    height: auto;
+  }
+
+  .info-card {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    height: 100%;
+    z-index: 200;
+    transform: translateX(calc(var(--card-w) * -1.5 - var(--gap)));
+  }
+}
+
+/* No sliding: a card changes place at once. */
+@media (prefers-reduced-motion: reduce) {
+  .slot {
+    transition: none;
+  }
 }

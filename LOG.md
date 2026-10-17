@@ -11,9 +11,8 @@ planned and reviewed in Cursor.
 
 **Asked:**
 
-> I just cloned this project from GitHub. I got a Claude Pro subscription from
-> school and I'm encouraged to use Claude Code. How do I get started? Should I
-> use the terminal or the app?
+> I just cloned this project from GitHub and I'm encouraged to use Claude Code.
+> How do I get started? Should I use the terminal or the app?
 
 > This will be a task app. A task has a due date, name, description, and
 > difficulty (low, med, high), and related tasks can be grouped. Tasks show up
@@ -23,8 +22,8 @@ planned and reviewed in Cursor.
 > Would it be a good idea to make this a Next app with a database where people
 > can collaborate on tasks?
 
-> I'll keep it a single-user web app. I came up with this to plan my school
-> week as a CS student, so it's mostly for personal use.
+> I'll keep it a single-user web app. I came up with this to plan my own week,
+> so it's mostly for personal use.
 
 > I want the same tech stack as my other project, since I know it, but I don't
 > think this app needs everything that project uses.
@@ -92,8 +91,7 @@ planned and reviewed in Cursor.
 
 **What came back / what changed:**
 
-- Signed in to Claude Code with my school account. It's a Claude Team plan,
-  not Pro.
+- Signed in to Claude Code.
 - Model: `opusplan`, which plans with Opus and writes code with Sonnet. The
   database and the task actions run on Opus at high effort for the whole
   session, because a mistake there is a security bug.
@@ -454,3 +452,198 @@ planned and reviewed in Cursor.
   `--ignore-scripts` on purpose, so CI does not depend on this file. `AGENTS.md`
   is not part of this piece and is not staged.
 - `npm run verify` passes.
+
+## 15. The card stack (Claude Code)
+
+**Asked:**
+
+> Continue
+
+> Just to confirm, the info card is not also in the center of the screen,
+> correct? The info card should be displayed off to the left of the focus card,
+> as its own visual card. The info card always matches whatever card has focus.
+
+> Ok yeah tucking to the left behind the info card is fine (leave enough space
+> that at least the first past card is still visible to be able to be clicked
+> for traversing backward). For narrow screens where the info card is above,
+> stacking to the left for past cards is still ok.
+
+> Scrolling through multiple cards at a time feels a bit sluggish (time to
+> switch from one card to the next is a tad bit slow). Another thing I noticed
+> is that the description for "Sort the shed" reads "<b>not bold</b> & plain".
+> Find what caused this and patch so that things like this don't happen again.
+> Everything else looks great! I'm not sure if you have this planned already but
+> we should handle really long descriptions by having a scrollable text box
+> (once the text exceeds the bounds of the card). Also let's have the stack of
+> cards centered on the screen, it currently sits above the centerline.
+
+> I don't like that the upcoming cards look tilted, can you have them look
+> straight on the stack similar to the past cards? Thanks
+
+> I also don't like that the visible portion of each card on the stack is
+> different on the past and upcoming cards. Make the right side match the left
+> spacing and leave the first past card with the same amount of spacing it has
+> relative to the others so that it is easier to click and see.
+
+> Add the testing you asked for, thanks
+
+> Do another full review of our code and design.
+
+> Start another review again from the message I sent at 6:20pm. I want to make sure
+> everything is ready and that the session limit pause didn't mess anything up.
+> Afterwards stage commits and provide messages.
+
+**What came back / what changed:**
+
+- This is stop 3 of the UI build order. The page now shows the card stack in
+  place of the sectioned list. It is read-only: there are no new writes and no
+  new server code, so there was no security review.
+- Layout, as clarified: the name card is the focus card, centered. One info card
+  sits to its left as its own card, and its details always follow the focus
+  card. Both sides of the stack are flat and mirror each other: past cards tuck
+  behind the info card and upcoming cards tuck behind the focus card. The first
+  card on each side sticks out 4rem so it is easy to see and click, and each
+  further card shows 1.5rem more. Below 60rem the info card moves above the focus
+  card, and the stack still tucks to the left and right of it.
+- Up next is the only view for now: every open task in queue order (`upNext` in
+  `lib/sort.ts`), so each task shows once and the old "Do now shown twice" issue
+  is gone. Do now carries a "Do now" label. The filters and the Completed view
+  come in the next stop. If only Later tasks exist, the page says the week is
+  clear and still shows them, with no Do now label.
+- `app/card-stack.tsx` is the one client component. It gets plain data and never
+  imports database code. Cards are placed with CSS transforms from their distance
+  to the focus card, not with native scrolling, because the focus card is wider
+  than the others and a scroll row would shift as it changed. Clicking a card,
+  the arrow keys, Home and End, the wheel, and Previous and Next all move the
+  focus. Keys are ignored in text fields. Colors come from the group's slot
+  through `data-slot`, and the group name is on the info card and the stacked
+  cards. Overdue is spelled out. With reduced motion the cards do not slide.
+- `lib/stack.ts` holds the pure parts (moving, keys, wheel, color slot) with
+  tests. The old view and its test were removed, and the view has a new test.
+- Looked at it in a clean scratch copy with a made-up database, since the real
+  one is empty: rendered markup in the right order, and screenshots of the wide
+  and narrow layouts, with and without past cards. Nothing was added to the real
+  database.
+- `/code-review` found real issues, all fixed: the wheel no longer takes over a
+  long card that needs to scroll, the focus follows the task instead of its
+  position (so a refreshed list does not jump), Home and End no longer take over
+  page scrolling, Previous and Next stay focusable at the ends, a card reached by
+  keyboard comes in front of the other stacked cards with its focus ring inside
+  it, and group colors match names the way the database does (English letters
+  only).
+- After trying it on a scratch copy, four changes. Stepping felt slow, so the
+  card slide went from 300 to 180 ms and the pause after a wheel step from 250 to
+  110 ms. The description now sits in its own bordered box that scrolls by itself
+  when the text is too long, with the group, due date and difficulty staying in
+  view above it. It becomes a Tab stop only when it actually overflows. A very
+  long name is cut to two lines on the info card, and the full name stays on the
+  focus card. The page is now a full-height column, so the stack and the "week is
+  clear" message are centered in the window, and the description box tint is a
+  theme variable.
+- The `<b>not bold</b> & plain` text was not a bug. It was in the made-up data I
+  put into the scratch database to prove that task text is escaped, and I did not
+  say so. The app has no code that renders HTML, so it shows text exactly as
+  stored, as the rules require. Nothing needed patching, so I added a test that
+  HTML-looking text shows as characters and is never made bold.
+- A second `/code-review` found more issues, all fixed: the wheel now leaves the
+  description box to scroll itself, a list refresh no longer resets a wheel
+  gesture or moves keyboard focus, the fallback place of the focus card stays
+  current when the list changes, the track is clipped so tabbing to a card that
+  is partly outside it cannot shift the stack, and the "week is clear" message
+  is centered above the stack too. The focus-following logic moved into
+  `lib/stack.ts` with tests.
+- Then the look changed. The tilt is gone on both sides, because the tilt and
+  perspective made the strips look different widths even where the numbers
+  matched. The upcoming cards now tuck behind the focus card, as the past cards
+  do behind the info card, so the visible widths match: 4rem for the first card
+  and 1.5rem for each after it. I asked first, and you chose the exact mirror. A
+  strip on the right shows its card's right end, so there is no readable name
+  there, only color and a click target.
+- A third `/code-review` found more, all fixed: the keyboard and wheel listeners
+  are now attached again when the stack appears (a page that loaded with no tasks
+  would never have had them), a Tab-focused stacked card stays behind the focus
+  card instead of covering it, the wheel leaves browser zoom and the sideways
+  swipe at either end of the stack alone, Home and End scroll a focused
+  description instead of moving the stack, the description box is measured again
+  when its text changes, the focus ring on the focus card is drawn inside it, and
+  the list has an explicit list role for Safari.
+- Tests for the key, wheel and focus behavior. The earlier tests only covered the
+  markup and the pure logic, and the reviews kept finding bugs in the parts they
+  could not run. I asked before adding a dependency, and you said to add it.
+  `happy-dom` is a new dev dependency, because Vitest cannot simulate a page on
+  its own and nothing already in the project can. It affects only the tests, no
+  app code. I chose 20.14.5 from mid-September rather than a release from the
+  last few days, and the lockfile pins it. `npm audit` shows the same 7 findings
+  with and without it, and none come from `happy-dom`. It is now in the stack
+  list in `CLAUDE.md`.
+- `app/card-stack.interaction.test.tsx` runs the stack in a simulated page, with
+  49 tests for the buttons, clicking cards, the arrow, Home and End keys, the
+  wheel (including zoom, the ends, the pause, and scrolling long text), the list
+  changing under the focus, listeners attaching when tasks appear, the
+  description and name becoming Tab stops only when they overflow, and which
+  cards are Tab stops. I undid several of the fixes one at a time and each made
+  a test fail.
+- The new tests found a bug the old ones could not: a wheel step over the stack
+  moved keyboard focus away from a field elsewhere on the page. Fixed, so focus
+  moves to the new focus card only when it was lost to the page body.
+- A fourth `/code-review` found more, fixed: a very long name that scrolls in the
+  focus card is now reachable by keyboard, the info card is a fixed
+  height so the stack does not jump when the focus changes in the narrow layout,
+  the overdue color stays on cards with no group, the error page button no longer
+  stretches, and a stacked card has its name as a tooltip. The tooltip does not
+  fully meet the rule that every control has a visible label, because an upcoming
+  strip only shows color. That follows from the look you chose, so it is open if
+  you want something visible there.
+- A full review by three separate reviewers (security and data, logic and the
+  page, spec and process) found no critical code defects. The queue order, the
+  date handling in 11 time zones, the data layer, and the security rules held.
+  It did find that my fourth-round fix for cards the track cuts off could never
+  fire: a card is always partly inside the track, and the observer also ignores
+  cards covered by other cards. The real problem was a Tab stop on every stacked
+  card, up to 12 before Previous and Next.
+- The fix: the observer and its tests are removed. Only the nearest card on each
+  side is a Tab stop, and the arrow keys, Home, End, the wheel and clicking still
+  reach every card. Small fixes from the same review: the status line announces
+  the task name for screen readers along with the position, a long unbroken group
+  name wraps in the info card, Home and End are left to a focus card only when
+  its long name scrolls, a mouse wheel notch counted in lines or pages (Firefox)
+  is a full step with the axis chosen once, a key event that does not come from an element is ignored,
+  clicking selects a card by its task and not its place in the list, and tasks
+  with the same creation time sort by id. There are new sort tests for Saturday,
+  Monday, a year end, a leap day, and the edges of the week for Done.
+- You decided: when the week has nothing due but Later tasks exist the page says
+  "The week is clear." and shows them, and with no open tasks at all it says "No
+  open tasks." The Completed screen will get a Clear old completed button, which
+  deletes tasks completed before this week after asking first, so old done tasks
+  can no longer keep a group's color. `CLAUDE.md` now says both. The telemetry
+  rule now says what is true: the app's own code makes no outside requests,
+  Next's telemetry is turned off, and the Next dev server's own version check is
+  the only other request.
+- A final check after a pause for the usage limit found nothing half-done: every
+  item from the wrap-up was in the code, the log numbers matched the tests, the
+  tracked files had no personal details, and the notes for the next session were
+  consistent. A last `/code-review` found four things, fixed: a 100-character
+  group name could push the description box out of the info card (the group is
+  now cut to two lines, and its full name is the tooltip), keyboard focus on a
+  stacked card could be left on a card that slid out of view (focus now moves to
+  the focus card), the observer for a scrolling box could keep a stale state when
+  its element went away, and the telemetry rule overstated what one command does
+  (it is a per-machine setting, so the README now has a step for a fresh clone).
+- Personal account and plan details were removed from entries 1 and 3 of this
+  log, history is not rewritten, and this repository now commits with the GitHub
+  noreply address so a personal email is not pushed again.
+- The rest of the review is recorded in the project notes, in the order to take
+  it: the Host-header check and anti-framing headers and a refresh of "today"
+  past midnight before the first write action, structure changes for the header
+  filters, a refactor that splits `app/card-stack.tsx` before done and edit,
+  and tooling and documentation items. Condensing this entry is one of them.
+- Left for later: the page sends every description to the browser, which a very
+  long list would need to trim. The existing `npm audit` findings are mostly in
+  `vitest`, where the only fix is a major upgrade to version 5.
+- Left for later: touch swiping, and wheel tuning. A trackpad's momentum may move
+  more than one card, and the pause is now shorter, so tell me if it skips. The
+  numbers are in `app/card-stack.tsx`. With hundreds of open tasks every card is
+  still a page element, which would need rendering only the nearby ones. The
+  completed label and the done list are still in the code for the Completed view
+  in the next stop. `AGENTS.md` is not part of this piece and is not staged.
+- `npm run verify` (229 tests) and `npm run build` pass.

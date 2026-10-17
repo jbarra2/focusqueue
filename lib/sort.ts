@@ -76,8 +76,10 @@ function byDueDate(a: Task, b: Task): number {
   return compareText(a.dueDate, b.dueDate);
 }
 
+// The id is the last tie-break, so two tasks created in the same millisecond always sort the same
+// way, instead of in whatever order the database returned them.
 function byCreated(a: Task, b: Task): number {
-  return Date.parse(a.createdAt) - Date.parse(b.createdAt);
+  return Date.parse(a.createdAt) - Date.parse(b.createdAt) || compareText(a.id, b.id);
 }
 
 /** Earliest due date, then low before med before high, then the task created first. */
@@ -94,7 +96,14 @@ export function compareRestOfWeek(a: Task, b: Task): number {
 export const compareLater = compareDueSoon;
 
 function byCompletedDesc(a: Task, b: Task): number {
-  return Date.parse(b.completedAt ?? "") - Date.parse(a.completedAt ?? "");
+  return (
+    Date.parse(b.completedAt ?? "") - Date.parse(a.completedAt ?? "") || compareText(a.id, b.id)
+  );
+}
+
+/** Up next: every open task in queue order. Do now, if there is one, comes first. */
+export function upNext(queue: Queue): Task[] {
+  return [...queue.dueSoon, ...queue.restOfWeek, ...queue.later];
 }
 
 export function buildQueue(tasks: Task[], today: string): Queue {
