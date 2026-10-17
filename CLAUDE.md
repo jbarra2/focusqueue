@@ -10,7 +10,7 @@ Security and stability come before the next feature. The GitHub repository is pu
 - Plain CSS in `app/globals.css`, with colors as variables in `:root`
 - SQLite through `better-sqlite3`, in `data/focusqueue.sqlite`
 - Zod for every write
-- ESLint, Prettier, and Vitest
+- ESLint, Prettier, and Vitest, with `happy-dom` to run components in a simulated page in tests (a dev dependency, never used by the app)
 
 Do not add Express, Prisma or another ORM, Postgres, Docker, authentication, OpenAPI, npm workspaces, or a UI or state library. Ask before adding any other dependency, and say why an existing one will not do.
 
@@ -26,7 +26,7 @@ Do now is the first open task in this order:
 
 1. Due soon: overdue, due today, or due tomorrow. Earliest due date first. On the same date, low before med before high, then the task created first.
 2. Rest of this week: due after tomorrow, through Sunday. Low before med before high, then earliest due date, then the task created first.
-3. If both are empty, the page says the week is clear.
+3. If both are empty, the page says the week is clear. If no task is open at all, it says No open tasks.
 
 Later holds open tasks due after Sunday that are not due soon. On a Sunday, a task due Monday is due soon. Later is never Do now.
 
@@ -39,9 +39,10 @@ One page: a header line, then the card stack.
 - The header holds the title, the stack filters, and an Add a task button.
 - The stack shows one current card in the center. The rest of the stack follows behind it to the right, in order. Clicking a stacked card, scrolling, or the arrow keys makes it current.
 - The current card shows as two cards side by side. The name card marks the task done when selected, after asking first. The info card shows group, due date, difficulty, and description, edits each one in place, and has Delete.
-- The page opens on Up next with the Do now task current. If no task is open, it says the week is clear.
+- The page opens on Up next with the Do now task current. If no task is open, it says No open tasks.
 - Filters: Up next (every open task in queue order), Due soon, Rest of this week, Later, and Completed; one group or No group; one difficulty; search by name. They combine.
 - Completed lists tasks completed this week, most recent first. A done task leaves every other stack.
+- The Completed screen has a Clear old completed button. It deletes tasks completed before this week, after asking first, in one transaction. A group left with no tasks is deleted too, which frees its color.
 - Name, due date, and difficulty are required. Group and description may be empty.
 - A task can be added, edited, deleted, marked done, and marked open again. Delete asks first.
 - Postpone a task by editing its due date. There is no snooze.
@@ -94,7 +95,7 @@ There is no login, so only this computer may reach the app.
 - An expected failure returns one sentence the user can act on. Log the details on the server.
 - Render task text as plain text. No `dangerouslySetInnerHTML` and no Markdown rendering.
 - `data/` stays out of git. Test data is made up, never copied from the real database.
-- No network calls, analytics, or telemetry.
+- No network calls, analytics, or telemetry from the app's own code. Next.js telemetry is a per-machine setting, so run `npx next telemetry disable` once after cloning. The Next dev server's own version check is the only outside request.
 
 ## Stability
 
