@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addDays, bucketOf, buildQueue, endOfWeek, startOfWeek, upNext } from "./sort";
+import { bucketOf, buildQueue, upNext } from "./sort";
 import type { Difficulty, Task } from "./task";
 
 // 2026-10-14 is a Wednesday. Its week runs 2026-10-12 to 2026-10-18.
@@ -30,22 +30,6 @@ function localNoon(day: string): string {
 function names(tasks: Task[]): string[] {
   return tasks.map((t) => t.name);
 }
-
-describe("date helpers", () => {
-  it("adds days across month and year boundaries", () => {
-    expect(addDays("2026-02-28", 1)).toBe("2026-03-01");
-    expect(addDays("2026-12-31", 1)).toBe("2027-01-01");
-    expect(addDays("2026-03-01", -1)).toBe("2026-02-28");
-  });
-
-  it("runs the week from Monday to Sunday", () => {
-    expect(startOfWeek(WEDNESDAY)).toBe("2026-10-12");
-    expect(endOfWeek(WEDNESDAY)).toBe(SUNDAY);
-    expect(startOfWeek("2026-10-12")).toBe("2026-10-12");
-    expect(endOfWeek(SUNDAY)).toBe(SUNDAY);
-    expect(startOfWeek(SUNDAY)).toBe("2026-10-12");
-  });
-});
 
 describe("buckets", () => {
   it("puts overdue, today, and tomorrow in Due soon", () => {

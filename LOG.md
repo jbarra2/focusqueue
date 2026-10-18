@@ -630,8 +630,9 @@ planned and reviewed in Cursor.
   its element went away, and the telemetry rule overstated what one command does
   (it is a per-machine setting, so the README now has a step for a fresh clone).
 - Personal account and plan details were removed from entries 1 and 3 of this
-  log, history is not rewritten, and this repository now commits with the GitHub
-  noreply address so a personal email is not pushed again.
+  log, and history is not rewritten. The two commits for this stop were made with
+  the GitHub noreply address. You then decided that hiding the commit email is not
+  necessary, so this repository uses the default commit identity again.
 - The rest of the review is recorded in the project notes, in the order to take
   it: the Host-header check and anti-framing headers and a refresh of "today"
   past midnight before the first write action, structure changes for the header
@@ -647,3 +648,38 @@ planned and reviewed in Cursor.
   completed label and the done list are still in the code for the Completed view
   in the next stop. `AGENTS.md` is not part of this piece and is not staged.
 - `npm run verify` (229 tests) and `npm run build` pass.
+
+## 16. Move the date and group helpers (Claude Code)
+
+**Asked:**
+
+> Continue
+
+**What came back / what changed:**
+
+- Next step was the start of stop 4 (the header filters and the Completed view).
+  The filters need the date helpers and the group matching in places that should
+  not depend on the queue or the card stack, so this piece only moves code, in its
+  own commit, and changes no behavior.
+- The date helpers (`localDate`, `addDays`, `startOfWeek`, `endOfWeek`,
+  `localDay`) moved from `lib/sort.ts` to a new `lib/date.ts`, with their tests in
+  `lib/date.test.ts`. `lib/sort.ts` now imports what it needs from there.
+- `slotFor`, and the case folding it uses, moved from `lib/stack.ts` to a new
+  `lib/group.ts`, with their tests in `lib/group.test.ts`. The card stack imports
+  `slotFor` from there. Entry 15 says `slotFor` is in `lib/stack.ts` and entry 9
+  says the date helpers are in `lib/sort.ts`. Those entries describe the code as
+  it was then, so they are unchanged.
+- The moved tests came across intact: 204 test cases before and after the move,
+  so none was lost. I then added two direct tests in `lib/date.test.ts`, for
+  `localDate` and `localDay`, because those two had no tests of their own and
+  the date helpers now have a module of their own. They pass in several time
+  zones.
+- `/code-review` found no defect in the move. It raised older points that stay as
+  they are in this piece: a refresh of "today" past midnight (already planned
+  before the first write action), the cost of looking up every card's color on
+  each render, and date arithmetic on a machine whose time zone skips a calendar
+  day, which only a few zones do, years from now.
+- The same commit carries a one-sentence correction to entry 15, about the commit
+  email you decided not to hide, which was waiting from the last session.
+  `AGENTS.md` is not part of this piece and is not staged.
+- `npm run verify` (231 tests) and `npm run build` pass.

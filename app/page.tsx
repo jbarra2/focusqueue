@@ -1,6 +1,7 @@
 import { connection } from "next/server";
 import { getDb } from "@/lib/db";
-import { buildQueue, localDay, upNext } from "@/lib/sort";
+import { localDay } from "@/lib/date";
+import { buildQueue, upNext } from "@/lib/sort";
 import { listGroups, listTasks } from "@/lib/tasks";
 import { CardStack } from "./card-stack";
 

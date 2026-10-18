@@ -9,12 +9,12 @@ import {
   type RefObject,
 } from "react";
 import { dueLabel } from "@/lib/format";
+import { slotFor } from "@/lib/group";
 import {
   accumulateWheel,
   focusAfter,
   indexOfTask,
   isEditableTarget,
-  slotFor,
   STACK_REACH,
   stepFromKey,
   wheelAmount,

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { completedLabel, dueLabel, formatDay } from "./format";
-import { addDays } from "./sort";
+import { addDays } from "./date";
 
 describe("years 0 to 99", () => {
   it("are not read as 1900 to 1999", () => {
