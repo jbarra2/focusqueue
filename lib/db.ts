@@ -7,6 +7,14 @@ import { migrate } from "./migrations";
 const DATA_DIR = path.join(process.cwd(), "data");
 const DB_PATH = path.join(DATA_DIR, "focusqueue.sqlite");
 
+/**
+ * Creates the data folder if it is missing, readable by its owner only. The mode applies to a
+ * folder made here, not to one that already exists, and Windows ignores it.
+ */
+export function ensureDataDir(dir: string): void {
+  fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
+}
+
 /** Opens a database, sets its pragmas, and brings its schema up to date. */
 export function openDatabase(filename: string): Database {
   const db = new BetterSqlite3(filename);
@@ -27,7 +35,7 @@ const cache = globalThis as typeof globalThis & { focusqueueDb?: Database };
 
 export function getDb(): Database {
   if (!cache.focusqueueDb) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
+    ensureDataDir(DATA_DIR);
     cache.focusqueueDb = openDatabase(DB_PATH);
   }
   return cache.focusqueueDb;

@@ -859,3 +859,74 @@ planned and reviewed in Cursor.
   the search box, both menus, the view links and Back.
   `AGENTS.md` is not part of this piece and is not staged.
 - `npm run verify` (372 tests) and `npm run build` pass.
+
+## 18. Hardening before the first write (Claude Code)
+
+**Asked:**
+
+> Continue
+
+> What's next? I need to get this project done ASAP so extra features and perfect
+> UI isn't necessary at the moment. Let's plan what we need to do to get this app
+> complete. There isn't a need to have it hosted on the web yet, just provide a
+> guide in the README for people to be able to get this running locally on their
+> machine.
+
+> (answering my questions) Five commit stops. One Edit form on the info card. Keep
+> Clear old completed, recolor a group, the midnight refresh and the vitest
+> upgrade. No LICENSE for now.
+
+**What came back / what changed:**
+
+- Stop 4b was committed, so the next step was a plan to finish. Six stops: this
+  hardening, Add a task, Done and Clear old completed, Edit and delete, a README
+  guide for running the app, and the vitest upgrade as its own commit. Anything
+  that is not on that list (the refactors, the styling pass, small cleanups) is
+  parked. This entry is stop 1. Nothing writes to the database yet, which is why
+  this comes first.
+- Only this computer may reach the app, but listening on `127.0.0.1` does not stop
+  a web page on another site from reaching it: the page can point its own name at
+  `127.0.0.1`, and the browser then sends that name in the Host header. `proxy.ts`
+  now answers 403 unless the Host is `127.0.0.1` or `localhost`, on any port. The
+  check is a pure function in `lib/host.ts`. It has no matcher, so it also covers
+  static files and the page's own posts, which are how Server Functions arrive. A
+  forwarded host that is not this computer is refused as well.
+- `next.config.ts` forbids framing (`frame-ancestors 'none'` and
+  `X-Frame-Options: DENY`), sends no referrer to other sites, and stops announcing
+  the framework. I first wrote the referrer rule as `no-referrer`. The security
+  review pointed out that a browser then sends `Origin: null` on a plain form post,
+  which the Server Action check refuses, so it is `same-origin`: the address still
+  never leaves the app.
+- A name or group made only of invisible characters, such as a zero-width space,
+  is now refused. Before, `trim()` let it through and the card looked blank. A few
+  other blank-looking characters, such as the Braille blank, still pass, on
+  purpose: it is a best-effort check and not a security boundary.
+- The `data` folder is now created readable by its owner only (`ensureDataDir` in
+  `lib/db.ts`). Windows ignores that mode, and a folder that already exists is not
+  changed, including yours.
+- A page left open overnight now refreshes itself at local midnight, and when the
+  tab comes back on a later day, so Do now and Due soon never show yesterday's
+  list. `msUntilMidnight` in `lib/date.ts` counts to the next local midnight and
+  is tested on the 23-hour and 25-hour days of a clock change. `app/day-refresh.tsx`
+  draws nothing and keeps the same card in focus.
+- I started the real thing in a scratch copy with its own empty database, as a
+  development server and as the production one. A request with Host `evil.example`,
+  `localhost.evil.example` or `0.0.0.0` got 403, including for a static file and
+  for a post that looks like a Server Function call. `127.0.0.1` and `localhost`
+  got 200 with the headers on. Your own `data` folder was not touched.
+- 71 tests were added. Each fix was undone one at a time to check that a test
+  fails: 16 of 16 were caught, all but the folder mode, which cannot be checked
+  this way on Windows. One was not caught at first (the component ignoring a new
+  day), so I added the test that was missing.
+- `/code-review` raised six points. One was a comment and is changed. The others
+  stay as they are on purpose: a timer and a tab change can both ask for a refresh
+  (harmless), the day is worked out the same way as on the page, and the strict
+  403 for an odd forwarded host is the intent. `/security-review` found nothing
+  at its confidence bar. It noted that the development server answers its own
+  hot-reload paths before the proxy, so the proxy comment now says so. The
+  production server has no such paths.
+- Not checked by me: that a browser really refuses to show the app in a frame. The
+  headers are on the response, but only a browser can show the block. The test of
+  the folder mode is skipped on Windows and runs in CI on Linux.
+  `AGENTS.md` is not part of this piece and is not staged.
+- `npm run verify` (441 tests, 2 skipped on Windows) and `npm run build` pass.

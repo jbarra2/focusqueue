@@ -59,6 +59,14 @@ describe("createTask and listTasks", () => {
     expect(listTasks(db)[0].description).toBe("");
   });
 
+  it("keeps a name that has a visible character next to invisible ones", () => {
+    const task = createTask(db, { ...INPUT, name: "​Report​", group: "   " }, NOW);
+    // Only trim() runs on the text. The invisible characters stay, and one visible character is enough.
+    expect(task.name).toBe("​Report​");
+    // White space alone is an empty group, which means no group. It is not an error.
+    expect(task.group).toBeNull();
+  });
+
   it("stores text that looks like SQL as plain text", () => {
     const name = `Robert'); DROP TABLE task; --`;
     createTask(db, { ...INPUT, name }, NOW);
@@ -67,6 +75,10 @@ describe("createTask and listTasks", () => {
 
   it.each([
     ["an empty name", { name: "" }],
+    ["a name of only zero-width spaces", { name: "​​" }],
+    ["a name of only white space and a zero-width joiner", { name: "  ‍ " }],
+    ["a name of only control characters", { name: "\u0007\u0000" }],
+    ["a group of only zero-width spaces", { group: "​" }],
     ["a group that is too long", { group: "x".repeat(101) }],
     ["a color outside the slots", { group: "New", groupColor: 9 }],
     ["a color that is not a whole number", { group: "New", groupColor: 1.5 }],
@@ -105,6 +117,13 @@ describe("updateTask", () => {
     const task = createTask(db, INPUT, NOW);
     expect(() => updateTask(db, task.id, { ...INPUT, name: "" })).toThrow();
     expect(listTasks(db)[0].name).toBe(INPUT.name);
+  });
+
+  it("refuses a name with no visible character and leaves the task as it was", () => {
+    const task = createTask(db, INPUT, NOW);
+    expect(() => updateTask(db, task.id, { ...INPUT, name: "​" })).toThrow();
+    expect(() => updateTask(db, task.id, { ...INPUT, group: "​" })).toThrow();
+    expect(listTasks(db)[0]).toMatchObject({ name: INPUT.name, group: INPUT.group });
   });
 
   it("returns false for a missing or malformed id", () => {

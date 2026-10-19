@@ -5,6 +5,7 @@ import { filterHref, parseSearchParams, stackView, type RawSearchParams } from "
 import { buildQueue } from "@/lib/sort";
 import { listGroups, listTasks } from "@/lib/tasks";
 import { CardStack } from "./card-stack";
+import { DayRefresh } from "./day-refresh";
 import { StackFilters } from "./stack-filters";
 
 // The prop is typed here, not with the generated PageProps type, which does not exist until a
@@ -21,6 +22,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Raw
   const view = stackView(queue, filters);
   return (
     <main>
+      <DayRefresh today={today} />
       <header className="page-header">
         <h1>Focusqueue</h1>
         <StackFilters

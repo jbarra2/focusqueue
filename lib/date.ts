@@ -39,6 +39,15 @@ export function endOfWeek(today: string): string {
   return addDays(today, 6 - weekdayIndex(today));
 }
 
+/**
+ * Milliseconds from `now` until the next local midnight, never 0. It is worked out from the local
+ * calendar day, not by adding 24 hours, so a day with 23 or 25 hours (daylight saving) is right.
+ */
+export function msUntilMidnight(now: Date): number {
+  const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+  return midnight.getTime() - now.getTime();
+}
+
 /** The local calendar day of an ISO 8601 timestamp. */
 export function localDay(timestamp: string): string {
   return formatDate(new Date(timestamp));
