@@ -14,12 +14,19 @@ export function formatDay(day: string): string {
   return dayFormat.format(localDate(day));
 }
 
-/** Overdue, Today, Tomorrow, or the date. */
-export function dueLabel(dueDate: string, today: string): string {
-  if (dueDate < today) return `Overdue · ${formatDay(dueDate)}`;
-  if (dueDate === today) return "Today";
-  if (dueDate === addDays(today, 1)) return "Tomorrow";
-  return formatDay(dueDate);
+type Dated = { dueDate: string; completedAt: string | null };
+
+/** Whether an open task is past its due date. A done task is never overdue. */
+export function isOverdue(task: Dated, today: string): boolean {
+  return task.completedAt === null && task.dueDate < today;
+}
+
+/** Overdue, Today, Tomorrow, or the date. Only an open task is overdue. */
+export function dueLabel(task: Dated, today: string): string {
+  if (isOverdue(task, today)) return `Overdue · ${formatDay(task.dueDate)}`;
+  if (task.dueDate === today) return "Today";
+  if (task.dueDate === addDays(today, 1)) return "Tomorrow";
+  return formatDay(task.dueDate);
 }
 
 /** The local day an ISO 8601 timestamp falls on, such as "Fri, Oct 17". */

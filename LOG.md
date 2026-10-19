@@ -683,3 +683,179 @@ planned and reviewed in Cursor.
   email you decided not to hide, which was waiting from the last session.
   `AGENTS.md` is not part of this piece and is not staged.
 - `npm run verify` (231 tests) and `npm run build` pass.
+
+## 17. Header filters and the Completed view (Claude Code)
+
+**Asked:**
+
+> Continue
+
+> (answering my question about the name search) Filter as you type.
+
+> (answering my question about the trackpad) Feels fine.
+
+> Yes make sure that the refactor commit and all notes are ready so that when I
+> get to work again in a new session, all I need to say is "Continue" and you can
+> pick up where we left off. Do this while you are staging the current commit
+> after we wrap things up. First I want you to do another full review for this
+> work, give me a guide on what I need to check myself in a dev run, and then
+> suggest a commit message after staging.
+
+**What came back / what changed:**
+
+- Next step was the rest of stop 4: the filters in the header, their state in the
+  URL, and the Completed view. I asked two things first. You chose search that
+  narrows as you type, and said the trackpad feels fine, so the wheel note is
+  dropped and the wheel settings stay.
+- The header now has a link for each view (Up next, Due soon, Rest of this week,
+  Later, Completed), a Group menu with All groups and No group, a Difficulty
+  menu, a search box labelled "Search by name", and a Clear filters link. They
+  combine. Each view keeps its own order, a group matches without case like the
+  database does, and the search looks only at the name, as plain text.
+- Everything is in the page address, so Back, reload and a copied link all work:
+  `?view=…&group=…&nogroup=1&difficulty=…&q=…`. Anything at its default is left
+  out. No group has its own parameter instead of a stand-in group name, because a
+  group name is free text. A value that is not valid, such as an unknown view,
+  is ignored on its own and never breaks the page or resets the others.
+  `lib/filter.ts` holds this as pure functions, with 48 tests. `lib/group.ts`
+  gained `findGroup` and exports `foldCase`, which the group filter needs.
+- The Completed view lists this week's done tasks, most recent first, and the
+  info card shows the day each was completed. A done task never says Overdue, even
+  if its due date passed before it was done.
+- An empty stack says why. Up next says "No open tasks." when nothing is open,
+  and each other view has its own sentence ("Nothing is due soon.", "No tasks
+  completed this week.", and so on) when it has nothing in it. When a view has
+  tasks but a filter hid them all, every view says "No tasks match these
+  filters." "The week is clear." stays above the stack on Up next.
+- The stack starts on the task whose id is in the address if it is in the list,
+  else the Do now task, else the first card, and starts fresh whenever a filter
+  changes. Nothing writes a task id into the address yet.
+- The menus and view links show your choice at once while the server answers, and
+  a second change before the answer builds on the first. The search is sent after
+  a quarter second without typing, or at once on Enter, and replaces the history
+  entry instead of adding one for each pause. A space typed at the end is kept,
+  and an answer to an earlier search never overwrites what you are typing.
+- Before building, a separate design review checked the plan against the Next
+  docs and the code. It found things I had wrong: the generated page props type
+  would not exist in CI, where the type check runs before a build, and the search
+  box would drop a trailing space and could be undone by a menu change made while
+  it waited. All are built in with tests. I undid the main fixes one at a time to
+  see a test fail: the search-box ones, the menu change building on the last one,
+  and the arrow keys from a link. Removing the cancel of a waiting search did not
+  fail any test, so I added an assertion that no timer is left over.
+- `/code-review` found real problems in my first version, all fixed. After a click
+  on a view link the arrow keys did nothing, because focus stayed on the link; the
+  left and right arrows now work from a link, and Home and End still scroll the
+  page. A view change that was still loading could be undone by a menu change, so
+  view links now go through the same path as the menus. Clear filters vanished
+  under the keyboard and dropped focus to the page; it now stays in place and
+  shows as inactive. A change of filter was not announced to screen readers, so a
+  hidden status line says the view and the number of tasks. Smaller fixes: the
+  views are listed once, the due label takes the task so an open check cannot be
+  forgotten, the search text is trimmed the same way in the filter, the address
+  and the box, and the header styles are scoped to the page header.
+- Not taken from the review: the Zod schema reaches the browser through the
+  address helpers (stop 5's form brings it there anyway), and one shared list of
+  difficulties would touch the write schema, which belongs in its own commit.
+- A full review by three separate reviewers (security and data, logic and the
+  page, spec and process) found no security or data defect. The security reviewer
+  tried more than thirty hostile addresses (repeated and nested parameters,
+  `__proto__`, huge and malformed text, `//host` paths), found that none can
+  throw, reach the error page, or produce a link that leaves the site, and found
+  no database or path text in the browser files. The process reviewer found
+  overstated or missing lines in this entry and stale handoff notes, both fixed.
+  The logic reviewer drove the page in headless Chrome against the real router
+  with a slow server and found a real bug in the search box: the answer to an
+  older search could arrive just after a newer one was sent and put the old text
+  back in the box for a moment. My first fix remembered every search that had been
+  sent and not answered.
+- That first fix was not enough, and neither was the second. Two more review
+  rounds fuzz-tested the search box with thousands of random sequences of typing,
+  menu changes, answers in several orders, Back and Forward, and reproduced the
+  failures in real Chrome. The first showed Back leaving the box out of step with
+  the page: the address was right and the stack was filtered, but the box was
+  empty or kept text that was no longer in the address. That happened when Back
+  left the search text unchanged, when Next dropped a navigation that was never
+  answered, and when the same text had been sent twice. My second design handled
+  Back with the browser's popstate event and still worked out from the props
+  whether any other change of the address was the box's own. The last round showed
+  that this guess still failed when the processor was busy: the check ran a moment
+  after React committed, and a pause ending or a click in that moment made the box
+  take an older answer. So the box no longer guesses at all. It follows the
+  address only on Back and Forward, which the browser announces with popstate (a
+  move to a #fragment fires it too, but with no state, and is ignored; I checked in
+  real Chrome that every entry Next makes has a state). Everything else the box
+  does is its own: the text stays as typed, an answer never rewrites it, and it
+  remembers the search text the address has or is heading to, so text typed right
+  after Back is sent even when it matches what the page showed before Back.
+- Evidence for that last design. The random sequences that made the first design
+  fail 12 to 22 times in every 600 now fail none: about 24,000 sequences across
+  two simulations of the page, four orders of answers, React's StrictMode on and
+  off, and a Back that commits at once as well as one that brings its data later.
+  I left out two things on purpose: two changes inside one browser task, which a
+  person cannot produce, and the data of an older Back arriving after a newer
+  navigation, which Next discards (the simulation now does the same).
+  In real Chrome with Next, 140 random walks of typing, menus, Back, Forward and
+  reloads, with the processor slowed to a quarter, a sixth and full speed, ended
+  with the box and the address agreeing every time. The one walk the checker
+  flagged was most likely a normal Clear filters click that React committed more
+  than a second late under the sixfold slowdown: its first action was Clear, the
+  write was the empty text, and the walk ended with the box and address agreeing. The scripted cases that failed before (Back
+  while a search is in flight, Back within the pause, a slow server with the same
+  text sent twice, an answer arriving as the pause ends, a #fragment link while a
+  search is waiting) all end correctly. I undid eleven parts of the new logic in a
+  scratch copy, one at a time, and a test failed each time.
+- A last reviewer tried angles nobody had: input methods, paste, undo, the native
+  clear button, going Back and Forward across other sites, and a server that
+  fails. It found three things. Back or Forward pressed after a reload but before
+  the page had loaded its scripts left the box on the old text, because nothing
+  was listening yet. The box now also reads the address once when it starts, by
+  the same rule the server uses. It failed 12 times out of 12 in the development
+  server before, and none of 28 runs fail now, at normal speed and at a quarter and
+  a sixth of it. One earlier batch at a quarter speed did show two stale boxes
+  while a heavy test of mine was running on the same machine; on a quiet machine
+  the same check passed, and a timed trace showed the box correcting itself as
+  soon as the page loaded. An input method that was still composing, such as Chinese or
+  Japanese typing, had its half-typed letters sent after a pause; nothing is sent
+  until the composition ends. The third is left, below. The rest held: the native
+  clear button, Escape, paste over the limit, undo, jumps through the history and
+  a failing server all behaved.
+- Tests were missing for Enter not loading the page, the All difficulty choice,
+  group matching with accented letters, cancelling the search when the page
+  closes, and Alt-click, and they are added. I undid each of those fixes in a
+  scratch copy and a test failed every time. The new search tests also cover an
+  older answer arriving late, the same text sent twice, Back in each of the cases
+  above, typing right after Back, and the #fragment case, and every test now fails
+  if React reports a mistake with console.error. The hover on a view link was
+  invisible against the page color, and now darkens the border; that one is a
+  color and has no test.
+- Known and left: a group used only by tasks completed before this week still
+  appears in the Group menu and shows nothing, until Clear old completed exists;
+  a pasted lone surrogate character is replaced when the address is read back,
+  which now happens only on Back, Forward or reload; every change re-reads all tasks (5,000 tasks with long
+  descriptions took about 1.4 seconds); stepping a menu with the keyboard adds one
+  history entry per option; clicking the view you are already on does not send
+  the stack back to Do now; `app/page.tsx` has no test of its own, so the wiring
+  from the address to the page is only checked in a dev run; and the tests'
+  router stand-in is only an approximation of the real router, so the Back and
+  slow-server cases were also checked in real Chrome. Typing a search right after
+  Back, before the data of Back's page has arrived, can bring back a filter that
+  Back removed from the new address (a window of about 20 milliseconds after a
+  reload, about 200 at a quarter of the speed). The box follows the
+  address only on Back and Forward, so a part of the page that changes the search
+  in the address by itself, such as the Add dialog in stop 5, has to reset the
+  box too.
+- Looked at in a scratch copy with a made-up database, at 1280 and 520 wide: every
+  view, a group and search together, no matches, the Completed screen with a done
+  task that is past due, and a bad address that falls back to Up next. The made-up
+  data includes a task named `R&D <notes> 100% done` to check that odd characters
+  are escaped in the address and on the page. Today was a Saturday, so Rest of
+  this week was empty and showed its sentence.
+- Left for later, on purpose: the page is still read-only. The Add a task button
+  that `CLAUDE.md` puts in the header comes with stop 5, and the Clear old
+  completed button on the Completed screen comes with the task actions in stop 6.
+- Not tried by you yet: typing, clicking and Back in your own browser. The tests
+  simulate them and a review drove headless Chrome through them, but please try
+  the search box, both menus, the view links and Back.
+  `AGENTS.md` is not part of this piece and is not staged.
+- `npm run verify` (372 tests) and `npm run build` pass.

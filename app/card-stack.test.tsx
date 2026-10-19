@@ -1,6 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { buildQueue, upNext } from "@/lib/sort";
+import { DEFAULT_FILTERS, stackView, type Filters } from "@/lib/filter";
+import { buildQueue } from "@/lib/sort";
 import type { Group, Task } from "@/lib/task";
 import { CardStack } from "./card-stack";
 
@@ -20,14 +21,20 @@ function task(overrides: Partial<Task>): Task {
   };
 }
 
-function render(tasks: Task[], groups: Group[] = []): string {
+// Renders the stack the way the page does: the queue and the filters decide its props.
+function render(
+  tasks: Task[],
+  groups: Group[] = [],
+  filters: Filters = DEFAULT_FILTERS,
+  focusTaskId: string | null = null,
+): string {
   const queue = buildQueue(tasks, today);
   return renderToStaticMarkup(
     <CardStack
-      tasks={upNext(queue)}
+      {...stackView(queue, filters)}
       groups={groups}
       today={today}
-      doNowId={queue.doNow?.id ?? null}
+      focusTaskId={focusTaskId}
     />,
   );
 }
@@ -246,5 +253,125 @@ describe("CardStack", () => {
   it("makes every stacked card a button with a visible name", () => {
     const html = render([task({ name: "A" }), task({ name: "B", dueDate: "2026-10-16" })]);
     expect(html).toMatch(/<button type="button" class="card stacked-card"[^>]*>.*B.*<\/button>/);
+  });
+});
+
+function localNoon(day: string): string {
+  const [year, month, date] = day.split("-").map(Number);
+  return new Date(year, month - 1, date, 12).toISOString();
+}
+
+describe("CardStack in the other views", () => {
+  const completedView: Filters = { ...DEFAULT_FILTERS, view: "completed" };
+  const finished = task({
+    name: "Finished job",
+    dueDate: "2026-10-12",
+    completedAt: localNoon("2026-10-13"),
+  });
+  const finishedEarlier = task({
+    name: "Earlier job",
+    dueDate: "2026-10-11",
+    completedAt: localNoon("2026-10-12"),
+  });
+
+  it("names the view in the label of the list", () => {
+    const open = task({ name: "Soon", dueDate: "2026-10-15" });
+    expect(render([open], [], { ...DEFAULT_FILTERS, view: "due-soon" })).toContain(
+      'aria-label="Due soon, 1 task"',
+    );
+    expect(render([finished, finishedEarlier], [], completedView)).toContain(
+      'aria-label="Completed, 2 tasks"',
+    );
+  });
+
+  it("says what is missing when a view has no tasks, and shows no stack", () => {
+    const html = render([task({ name: "Far", dueDate: "2026-11-30" })], [], completedView);
+    expect(html).toContain('<p class="empty">No tasks completed this week.</p>');
+    expect(html).not.toContain('class="stack"');
+    const filtered = render([task({ name: "Plan" })], [], { ...DEFAULT_FILTERS, q: "zzz" });
+    expect(filtered).toContain('<p class="empty">No tasks match these filters.</p>');
+  });
+
+  it("shows done tasks most recent first, each once", () => {
+    const list = listOf(render([finishedEarlier, finished], [], completedView));
+    expect(list.indexOf("Finished job")).toBeGreaterThanOrEqual(0);
+    expect(list.indexOf("Finished job")).toBeLessThan(list.indexOf("Earlier job"));
+    expect(count(list, ">Finished job<")).toBe(1);
+  });
+
+  it("does not call a done task overdue, though its due date has passed", () => {
+    const html = render([finished], [], completedView);
+    expect(html).not.toContain("Overdue");
+    expect(html).not.toContain('class="overdue"');
+    // The due date is still shown, as a plain date.
+    expect(html).toContain("Mon, Oct 12");
+  });
+
+  it("shows when a done task was completed, and never for an open task", () => {
+    const info = (html: string) => html.slice(html.indexOf("<aside"), html.indexOf("</aside>"));
+    expect(info(render([finished], [], completedView))).toMatch(
+      /<dt>Completed<\/dt><dd>Tue, Oct 13<\/dd>/,
+    );
+    expect(render([task({ name: "Open job" })])).not.toContain(">Completed<");
+  });
+
+  it("marks no done card as Do now", () => {
+    const html = render([task({ name: "Due today" }), finished], [], completedView);
+    expect(html).not.toContain(">Do now<");
+    expect(html).toContain("1 of 1");
+  });
+
+  it("an open task past its due date still says Overdue on its stacked card", () => {
+    // The earlier one is the focus card, so the later one is the stacked card in the list.
+    const html = render([
+      task({ name: "Late job", dueDate: "2026-10-10" }),
+      task({ name: "Later job", dueDate: "2026-10-11" }),
+    ]);
+    expect(listOf(html)).toContain('class="overdue"');
+    expect(listOf(html)).toContain("Overdue · Sun, Oct 11");
+  });
+});
+
+describe("CardStack, where it starts", () => {
+  const first = task({ name: "First job", dueDate: "2026-10-12" });
+  const second = task({ name: "Second job", dueDate: "2026-10-16" });
+  const third = task({ name: "Third job", dueDate: "2026-10-17" });
+
+  function nameCard(html: string): string {
+    return html.slice(html.indexOf('class="card name-card"'), html.indexOf("</article>"));
+  }
+
+  it("starts on the task a link asks for", () => {
+    const html = render([first, second, third], [], DEFAULT_FILTERS, third.id);
+    expect(nameCard(html)).toContain("Third job");
+    expect(html).toContain("3 of 3");
+    // It is not Do now, so it has no Do now label, and the Do now task has one on its card.
+    expect(nameCard(html)).not.toContain(">Do now<");
+    expect(html).toContain(">Do now<");
+  });
+
+  it("starts on the Do now task when no task is asked for", () => {
+    const html = render([second, first, third]);
+    expect(nameCard(html)).toContain("First job");
+    expect(nameCard(html)).toContain(">Do now<");
+  });
+
+  it("starts on the Do now task when the task asked for is not in the list", () => {
+    const html = render([first, second], [], DEFAULT_FILTERS, crypto.randomUUID());
+    expect(nameCard(html)).toContain("First job");
+  });
+
+  it("starts on the first card when neither is in the list", () => {
+    // Filtered to Later, where the Do now task is not, and the asked task is open but elsewhere.
+    const later = task({ name: "Later job", dueDate: "2026-11-30" });
+    const html = render([first, later], [], { ...DEFAULT_FILTERS, view: "later" }, first.id);
+    expect(nameCard(html)).toContain("Later job");
+    expect(html).toContain("1 of 1");
+  });
+
+  it("starts on the first card of Completed even when an open task is asked for", () => {
+    const done = task({ name: "Done job", completedAt: localNoon("2026-10-13") });
+    const html = render([first, done], [], { ...DEFAULT_FILTERS, view: "completed" }, first.id);
+    expect(nameCard(html)).toContain("Done job");
   });
 });

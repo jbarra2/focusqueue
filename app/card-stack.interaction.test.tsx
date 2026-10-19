@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { act } from "react";
+import { act, type ComponentProps } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Group, Task } from "@/lib/task";
@@ -34,10 +34,22 @@ let container: HTMLDivElement;
 let root: Root;
 let clock: number;
 
-function show(tasks: Task[], groups: Group[] = []) {
+function show(
+  tasks: Task[],
+  groups: Group[] = [],
+  extra: Partial<ComponentProps<typeof CardStack>> = {},
+) {
   act(() => {
     root.render(
-      <CardStack tasks={tasks} groups={groups} today={today} doNowId={tasks[0]?.id ?? null} />,
+      <CardStack
+        tasks={tasks}
+        groups={groups}
+        today={today}
+        doNowId={tasks[0]?.id ?? null}
+        label="Up next"
+        emptyMessage="No open tasks."
+        {...extra}
+      />,
     );
   });
 }
@@ -579,6 +591,104 @@ describe("the stack in a page", () => {
       overflow(box, true);
       click(control("Next"));
       expect(box.getAttribute("tabindex")).toBe("0");
+    });
+  });
+
+  describe("where it starts, and what the page says around it", () => {
+    it("starts on the task a link asks for", () => {
+      show([A, B, C], [], { focusTaskId: "c" });
+      expect(status()).toBe("3 of 3");
+      expect(focusCardName()).toBe("Task c");
+      expect(infoCardName()).toBe("Task c");
+    });
+
+    it("starts on the Do now task when the task asked for is not in the list", () => {
+      show([A, B, C], [], { focusTaskId: "gone", doNowId: "b" });
+      expect(focusCardName()).toBe("Task b");
+    });
+
+    it("starts on the first card when neither the asked task nor Do now is in the list", () => {
+      show([A, B, C], [], { focusTaskId: "gone", doNowId: null });
+      expect(focusCardName()).toBe("Task a");
+    });
+
+    it("keeps its place when the page sends the same list again with another task asked for", () => {
+      // Only a new key restarts the stack, which the page sets from the URL.
+      show([A, B, C]);
+      press("ArrowRight");
+      show([A, B, C], [], { focusTaskId: "c" });
+      expect(focusCardName()).toBe("Task b");
+    });
+
+    it("says the message it is given when the list is empty", () => {
+      show([], [], { emptyMessage: "Nothing is due soon." });
+      expect(container.querySelector(".empty")?.textContent).toBe("Nothing is due soon.");
+      expect(container.querySelector(".stack")).toBeNull();
+    });
+
+    it("puts the notice above the stack, and shows none when it is not given", () => {
+      show([A, B], [], { notice: "The week is clear." });
+      expect(container.querySelector(".stack > .empty")?.textContent).toBe("The week is clear.");
+      show([A, B]);
+      expect(container.querySelector(".stack > .empty")).toBeNull();
+    });
+
+    it("labels the list with the name of the view", () => {
+      show([A, B], [], { label: "Completed" });
+      expect(container.querySelector(".track")?.getAttribute("aria-label")).toBe(
+        "Completed, 2 tasks",
+      );
+    });
+  });
+
+  describe("controls in the header", () => {
+    // The filters sit in the header, outside the stack, so a key pressed there is theirs.
+    it("leaves the arrow keys to a menu and a search box", () => {
+      show([A, B, C]);
+      const menu = document.createElement("select");
+      const search = document.createElement("input");
+      document.body.append(menu, search);
+      for (const field of [menu, search]) {
+        const event = press("ArrowRight", {}, field);
+        expect(event.defaultPrevented).toBe(false);
+        expect(focusCardName()).toBe("Task a");
+      }
+    });
+
+    // A click on a view link leaves focus on the link. The left and right arrows do nothing on a
+    // link, so they still move the stack from there.
+    it("moves the stack with the left and right arrows from a link outside it", () => {
+      show([A, B, C]);
+      const link = document.createElement("a");
+      link.href = "/";
+      document.body.append(link);
+      const next = press("ArrowRight", {}, link);
+      expect(next.defaultPrevented).toBe(true);
+      expect(focusCardName()).toBe("Task b");
+      press("ArrowLeft", {}, link);
+      expect(focusCardName()).toBe("Task a");
+    });
+
+    it("leaves Home and End to the page from a link outside the stack", () => {
+      show([A, B, C]);
+      press("ArrowRight");
+      const link = document.createElement("a");
+      link.href = "/";
+      document.body.append(link);
+      for (const key of ["Home", "End"]) {
+        const event = press(key, {}, link);
+        expect(event.defaultPrevented).toBe(false);
+      }
+      expect(focusCardName()).toBe("Task b");
+    });
+
+    it("leaves the arrow keys to a button outside the stack", () => {
+      show([A, B, C]);
+      const button = document.createElement("button");
+      document.body.append(button);
+      const event = press("ArrowRight", {}, button);
+      expect(event.defaultPrevented).toBe(false);
+      expect(focusCardName()).toBe("Task a");
     });
   });
 });

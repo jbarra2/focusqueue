@@ -1,5 +1,28 @@
 import { describe, expect, it } from "vitest";
-import { slotFor } from "./group";
+import { findGroup, slotFor } from "./group";
+
+describe("findGroup", () => {
+  const groups = [
+    { name: "Home", color: 3 },
+    { name: "Errands", color: 8 },
+  ];
+
+  it("returns the stored group, matching without case", () => {
+    expect(findGroup(groups, "hOmE")).toEqual({ name: "Home", color: 3 });
+    expect(findGroup(groups, "Errands")).toEqual({ name: "Errands", color: 8 });
+  });
+
+  it("is undefined for an unknown name or an empty list", () => {
+    expect(findGroup(groups, "Nowhere")).toBeUndefined();
+    expect(findGroup([], "Home")).toBeUndefined();
+  });
+
+  it("folds only English letters, as the database does", () => {
+    const accented = [{ name: "Éclair", color: 2 }];
+    expect(findGroup(accented, "ÉCLAIR")?.color).toBe(2);
+    expect(findGroup(accented, "éclair")).toBeUndefined();
+  });
+});
 
 describe("slotFor", () => {
   const groups = [

@@ -8,7 +8,7 @@ import {
   type CSSProperties,
   type RefObject,
 } from "react";
-import { dueLabel } from "@/lib/format";
+import { completedLabel, dueLabel, isOverdue } from "@/lib/format";
 import { slotFor } from "@/lib/group";
 import {
   accumulateWheel,
@@ -61,22 +61,44 @@ function scrollsItself(target: Element): boolean {
 }
 
 type Props = {
-  /** Open tasks in Up next order. */
+  /** The tasks of the current view, in that view's order. */
   tasks: Task[];
   groups: Group[];
   today: string;
   /** The queue's pick, or null when nothing is due this week. */
   doNowId: string | null;
+  /** The name of the view, such as "Up next", for the list's label. */
+  label: string;
+  /** Said instead of the stack when there are no tasks. */
+  emptyMessage: string;
+  /** A line above the stack, such as that the week is clear. */
+  notice?: string;
+  /** The task a link asks to start on, if it is in the list. */
+  focusTaskId?: string | null;
 };
 
 // Task text is rendered as plain text. React escapes it. Colors come from the theme's group
 // slots through data-slot, so no task text ever reaches a style.
-export function CardStack({ tasks, groups, today, doNowId }: Props) {
+export function CardStack({
+  tasks,
+  groups,
+  today,
+  doNowId,
+  label,
+  emptyMessage,
+  notice,
+  focusTaskId = null,
+}: Props) {
   const count = tasks.length;
   // The focus follows the task, not its place in the list, so a refreshed list does not move it
   // to another task. If the task is gone (done or deleted), the card now in its place has it.
+  // It starts on the task a link asked for, else the Do now task, else the first card, using the
+  // first of those that is in the list.
   const [focusId, setFocusId] = useState<string | null>(
-    () => tasks.find((task) => task.id === doNowId)?.id ?? tasks[0]?.id ?? null,
+    () =>
+      [focusTaskId, doNowId].find((id) => tasks.some((task) => task.id === id)) ??
+      tasks[0]?.id ??
+      null,
   );
   // Where the focus card was on the last render, for when its task is gone.
   const lastIndex = useRef(0);
@@ -139,10 +161,15 @@ export function CardStack({ tasks, groups, today, doNowId }: Props) {
       ) {
         return;
       }
-      // Work from the stack itself or from the page body, but not from other controls.
-      if (target !== document.body && !stack.contains(target)) return;
       const move = stepFromKey(event.key);
       if (move === null) return;
+      // Work from the stack itself or from the page body, but not from other controls. The one
+      // exception is a link, such as a view in the header: the left and right arrows do nothing
+      // there, and a click leaves focus on the link, so they would stop working after it. Home and
+      // End still scroll the page from a link.
+      const sideways = move === "previous" || move === "next";
+      const onLink = target.closest("a") !== null;
+      if (target !== document.body && !stack.contains(target) && !(sideways && onLink)) return;
       if (move === "first" || move === "last") {
         // Home and End scroll the page when nothing in the stack has focus, and scroll a box
         // that has focus because it has more text than fits. A focus card that does not scroll
@@ -218,7 +245,7 @@ export function CardStack({ tasks, groups, today, doNowId }: Props) {
   }, [index]);
 
   if (count === 0) {
-    return <p className="empty">No open tasks.</p>;
+    return <p className="empty">{emptyMessage}</p>;
   }
 
   const lookup = (task: Task) => slotFor(groups, task.group) ?? undefined;
@@ -226,7 +253,7 @@ export function CardStack({ tasks, groups, today, doNowId }: Props) {
 
   return (
     <div className="stack" ref={stackRef}>
-      {doNowId === null && <p className="empty">The week is clear.</p>}
+      {notice && <p className="empty">{notice}</p>}
       <div className="stage">
         <aside className="card info-card" data-slot={lookup(focused)} aria-labelledby="info-title">
           <h2 id="info-title">Details</h2>
@@ -239,9 +266,15 @@ export function CardStack({ tasks, groups, today, doNowId }: Props) {
               {focused.group ?? "No group"}
             </dd>
             <dt>Due</dt>
-            <dd className={focused.dueDate < today ? "overdue" : undefined}>
-              {dueLabel(focused.dueDate, today)}
+            <dd className={isOverdue(focused, today) ? "overdue" : undefined}>
+              {dueLabel(focused, today)}
             </dd>
+            {focused.completedAt !== null && (
+              <>
+                <dt>Completed</dt>
+                <dd>{completedLabel(focused.completedAt)}</dd>
+              </>
+            )}
             <dt>Difficulty</dt>
             <dd>{DIFFICULTY_LABEL[focused.difficulty]}</dd>
             <dt id="info-description-label">Description</dt>
@@ -263,7 +296,7 @@ export function CardStack({ tasks, groups, today, doNowId }: Props) {
         <ol
           className="track"
           role="list"
-          aria-label={`Up next, ${count} ${count === 1 ? "task" : "tasks"}`}
+          aria-label={`${label}, ${count} ${count === 1 ? "task" : "tasks"}`}
         >
           {tasks.map((task, position) => {
             const offset = position - index;
@@ -314,8 +347,8 @@ export function CardStack({ tasks, groups, today, doNowId }: Props) {
                   {isDoNow && <span className="badge">Do now</span>}
                   <span className="task-name">{task.name}</span>
                   {task.group !== null && <span>{task.group}</span>}
-                  <span className={task.dueDate < today ? "overdue" : undefined}>
-                    {dueLabel(task.dueDate, today)}
+                  <span className={isOverdue(task, today) ? "overdue" : undefined}>
+                    {dueLabel(task, today)}
                   </span>
                 </button>
               </li>
