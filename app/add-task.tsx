@@ -10,7 +10,7 @@ import {
   type TransitionStartFunction,
 } from "react";
 import { findGroup } from "@/lib/group";
-import type { Group } from "@/lib/task";
+import { DIFFICULTIES, DIFFICULTY_LABEL, type Group } from "@/lib/task";
 import type { AddTaskResult } from "@/lib/task-actions";
 import { GROUP_LIMIT_MESSAGE } from "@/lib/task-schema";
 import { GROUP_COLOR_COUNT } from "@/lib/theme";
@@ -22,12 +22,6 @@ import { ColorGrid, colorName } from "./color-grid";
 // that nothing was, and it points at the list, so the person does not add it a second time.
 const SEND_FAILED_MESSAGE =
   "The app did not answer, so the task may not have been saved. Look at the list, and try again if it is missing.";
-
-const DIFFICULTY_CHOICES = [
-  { value: "low", label: "Low" },
-  { value: "med", label: "Medium" },
-  { value: "high", label: "High" },
-] as const;
 
 type FormProps = {
   groups: Group[];
@@ -158,7 +152,7 @@ function AddTaskForm({ groups, today, pending, startTransition, onCancel, onAdde
       <fieldset className="form-field">
         <legend>Difficulty</legend>
         <div className="choices">
-          {DIFFICULTY_CHOICES.map(({ value, label }) => (
+          {DIFFICULTIES.map((value) => (
             <label key={value} className="choice">
               <input
                 type="radio"
@@ -168,7 +162,7 @@ function AddTaskForm({ groups, today, pending, startTransition, onCancel, onAdde
                 checked={difficulty === value}
                 onChange={() => setDifficulty(value)}
               />
-              {label}
+              {DIFFICULTY_LABEL[value]}
             </label>
           ))}
         </div>

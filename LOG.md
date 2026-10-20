@@ -1088,3 +1088,71 @@ planned and reviewed in Cursor.
   passed and none skipped. You chose to leave it there, with no note in the README.
 - One test was added, the one above. No other test changed, and all of them pass.
 - `npm run verify` (562 tests, 2 skipped on Windows) and `npm run build` pass.
+
+## 21. Define the difficulty list and the slot colors once (Claude Code)
+
+**Asked:**
+
+> Continue
+
+**What came back / what changed:**
+
+- Another refactor and nothing else: the app looks and behaves the same, in its own
+  commit. It is done now so that Done, Edit and Delete can use one list and one rule
+  instead of copying them again.
+- The difficulties are written once. The list `low, med, high`, with the names shown
+  on screen (Low, Medium, High), is now in `lib/task.ts`. Before, it was written out
+  separately in the task type, the task schema, the filter that reads the address,
+  the sort order, the header's Difficulty menu, the Add dialog and the info card.
+  All of them read the list now, and its order is the sort order. One copy is left
+  on purpose: the database's own check inside a migration, because a committed
+  migration is never edited. A new test reads that check from a migrated database
+  and fails if it and the list ever differ, so adding a fourth difficulty means
+  adding a migration for it.
+- The 8 group colors are written once. Each slot now sets two style variables
+  (`--slot-bg` and `--slot-ink`), and the cards, the squares in the color grid and
+  the chip next to a group all read them in one shared rule. That replaced 16 rules,
+  eight for the cards and eight shared by the squares and the chip, each naming the
+  slot's colors again. The shared rule sets `background-color` and not the
+  `background` shorthand, because the diagonal stripes on a taken color are a
+  background image, and the shorthand would wipe them.
+- The info card's width has its own variable now (`--info-w`), the same as the card
+  width for the time being. The wide layout (where the info card sits, and where the
+  first card behind it starts) is worked out from it, so nothing changes on screen.
+  It is there so the Edit stop can make that card wider without touching the maths
+  of the stack.
+- I checked the page in a real browser, not by reading the code. I built the old
+  code and the new code in a scratch copy with made-up tasks and drove headless
+  Chrome through each one at 1280 and 520 px wide. There were seven states: first
+  load, the right arrow twice, End, the Completed view, the Add dialog open, the
+  dialog with a new group typed (so the color grid shows, with its three taken colors
+  striped), and the dialog with an existing group typed (so the color chip shows).
+  For each I saved a screenshot of the whole page, the page markup, and which element
+  had keyboard focus. All 42 files from the old and the new code are identical to the
+  byte. I ran it a second time after the review fixes below, on the final code.
+- `/code-review` raised 9 points. I fixed six. The new theme test read the style
+  sheet badly: it misread the first rule inside every `@media` block and looked only
+  at the first rule it found, so a repeated or overriding rule would have gone
+  unseen. Now every rule is read, each slot and each of the three shared selectors
+  must appear exactly once, and the check that no other rule names a group color
+  lists the selectors that do, instead of counting. The comment on `--info-w` said
+  the stack would not move when the card grows, which is wrong (the cards behind it
+  move on purpose), so it now says what it does. The sort rank went back to a lookup
+  table, built from the list, so the sort code reads as it did. The migration test
+  reuses one database instead of opening four. The two new difficulty tests said
+  more than they checked, so their names were corrected. I left three on purpose. A
+  slot outside 1 to 8 would lose the card's base colors, but it cannot happen: the
+  database refuses it, the task schema refuses it, and the theme test needs a rule
+  for every slot. The review also wanted this split into two commits, but one commit
+  is the plan you approved. And it suggested one shared "is this a difficulty" check
+  for the menu, the address and the add action: the menu and the address do different
+  jobs, and the cast in the add action only changes a type, because the schema does
+  the checking. `AGENTS.md` is not part of this piece and is not staged.
+- Seven tests were added in all, and the old test for the swatch rules was replaced
+  by new theme tests for the single rule. I undid the work one piece at a time to
+  check that a test fails: a fourth difficulty added, the list reversed, one slot
+  pointing at another slot's text color, the chip dropped from the shared rule, the
+  `background` shorthand put back, a slot color written again, the shared rule
+  repeated inside a media query, and a slot's variable overridden later. 8 of 8 were
+  caught.
+- `npm run verify` (569 tests, 2 skipped on Windows) and `npm run build` pass.

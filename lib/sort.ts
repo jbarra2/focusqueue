@@ -1,5 +1,5 @@
 import { addDays, endOfWeek, localDay, startOfWeek } from "./date";
-import type { Difficulty, Task } from "./task";
+import { DIFFICULTIES, type Difficulty, type Task } from "./task";
 
 // Pure functions. Today's date is always an argument, so nothing here reads the clock.
 // Due dates are YYYY-MM-DD strings, compared as strings. The date helpers are in ./date.
@@ -14,7 +14,10 @@ export type Queue = {
   done: Task[];
 };
 
-const DIFFICULTY_RANK: Record<Difficulty, number> = { low: 0, med: 1, high: 2 };
+// A difficulty's rank is its place in the list, which is easiest first.
+const DIFFICULTY_RANK = Object.fromEntries(
+  DIFFICULTIES.map((difficulty, place) => [difficulty, place]),
+) as Record<Difficulty, number>;
 
 export function bucketOf(task: Task, today: string): Bucket {
   if (task.dueDate <= addDays(today, 1)) return "dueSoon";

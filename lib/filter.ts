@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { findGroup, foldCase } from "./group";
 import { upNext, type Queue } from "./sort";
-import type { Difficulty, Group, Task } from "./task";
+import { DIFFICULTIES, type Difficulty, type Group, type Task } from "./task";
 import { groupNameSchema, taskIdSchema } from "./task-schema";
 
 // Pure functions for the header filters and the URL that holds them. They run on the server, to
@@ -74,7 +74,7 @@ const paramsSchema = z.object({
     .catch(DEFAULT_VIEW),
   group: groupNameSchema.nullable().catch(null),
   nogroup: z.literal("1").nullable().catch(null),
-  difficulty: z.enum(["low", "med", "high"]).nullable().catch(null),
+  difficulty: z.enum(DIFFICULTIES).nullable().catch(null),
   q: searchTextSchema,
   task: taskIdSchema.nullable().catch(null),
 });

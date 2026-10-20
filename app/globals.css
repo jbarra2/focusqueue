@@ -246,6 +246,7 @@ button {
   width: 100%;
   margin-block: auto;
   --card-w: min(16rem, 70vw);
+  --info-w: var(--card-w); /* the info card's width, which the wide layout below follows */
   --gap: 1rem; /* between the info card and the focus card */
   --peek: 4rem; /* how far the first card on each side sticks out */
   --stack-step: 1.5rem; /* how far each further card on each side shows */
@@ -362,7 +363,7 @@ button {
 .info-card {
   display: flex;
   flex-direction: column;
-  width: var(--card-w);
+  width: var(--info-w);
   height: 24rem;
   overflow: hidden;
 }
@@ -462,44 +463,56 @@ button {
   text-decoration: underline;
 }
 
-.card[data-slot="1"] {
-  background: var(--group-1);
-  color: var(--group-1-ink);
+/* A group's color slot is set once here, as two variables. Everything that wears a group color,
+   which is the cards, the swatches in the color grid and the chip next to the group, reads them
+   below, so a slot cannot look different in one place. A theme defines --group-N and --group-N-ink. */
+[data-slot="1"] {
+  --slot-bg: var(--group-1);
+  --slot-ink: var(--group-1-ink);
 }
 
-.card[data-slot="2"] {
-  background: var(--group-2);
-  color: var(--group-2-ink);
+[data-slot="2"] {
+  --slot-bg: var(--group-2);
+  --slot-ink: var(--group-2-ink);
 }
 
-.card[data-slot="3"] {
-  background: var(--group-3);
-  color: var(--group-3-ink);
+[data-slot="3"] {
+  --slot-bg: var(--group-3);
+  --slot-ink: var(--group-3-ink);
 }
 
-.card[data-slot="4"] {
-  background: var(--group-4);
-  color: var(--group-4-ink);
+[data-slot="4"] {
+  --slot-bg: var(--group-4);
+  --slot-ink: var(--group-4-ink);
 }
 
-.card[data-slot="5"] {
-  background: var(--group-5);
-  color: var(--group-5-ink);
+[data-slot="5"] {
+  --slot-bg: var(--group-5);
+  --slot-ink: var(--group-5-ink);
 }
 
-.card[data-slot="6"] {
-  background: var(--group-6);
-  color: var(--group-6-ink);
+[data-slot="6"] {
+  --slot-bg: var(--group-6);
+  --slot-ink: var(--group-6-ink);
 }
 
-.card[data-slot="7"] {
-  background: var(--group-7);
-  color: var(--group-7-ink);
+[data-slot="7"] {
+  --slot-bg: var(--group-7);
+  --slot-ink: var(--group-7-ink);
 }
 
-.card[data-slot="8"] {
-  background: var(--group-8);
-  color: var(--group-8-ink);
+[data-slot="8"] {
+  --slot-bg: var(--group-8);
+  --slot-ink: var(--group-8-ink);
+}
+
+/* background-color, not the background shorthand: a taken swatch draws stripes with
+   background-image, which the shorthand would clear. */
+.card[data-slot],
+.swatch[data-slot],
+.swatch-chip[data-slot] {
+  background-color: var(--slot-bg);
+  color: var(--slot-ink);
 }
 
 .stack-controls {
@@ -687,59 +700,11 @@ button {
   font-weight: 600;
 }
 
-.swatch[data-slot="1"],
-.swatch-chip[data-slot="1"] {
-  background-color: var(--group-1);
-  color: var(--group-1-ink);
-}
-
-.swatch[data-slot="2"],
-.swatch-chip[data-slot="2"] {
-  background-color: var(--group-2);
-  color: var(--group-2-ink);
-}
-
-.swatch[data-slot="3"],
-.swatch-chip[data-slot="3"] {
-  background-color: var(--group-3);
-  color: var(--group-3-ink);
-}
-
-.swatch[data-slot="4"],
-.swatch-chip[data-slot="4"] {
-  background-color: var(--group-4);
-  color: var(--group-4-ink);
-}
-
-.swatch[data-slot="5"],
-.swatch-chip[data-slot="5"] {
-  background-color: var(--group-5);
-  color: var(--group-5-ink);
-}
-
-.swatch[data-slot="6"],
-.swatch-chip[data-slot="6"] {
-  background-color: var(--group-6);
-  color: var(--group-6-ink);
-}
-
-.swatch[data-slot="7"],
-.swatch-chip[data-slot="7"] {
-  background-color: var(--group-7);
-  color: var(--group-7-ink);
-}
-
-.swatch[data-slot="8"],
-.swatch-chip[data-slot="8"] {
-  background-color: var(--group-8);
-  color: var(--group-8-ink);
-}
-
 /* Wide enough for the info card to sit left of the focus card, with the first past card
    sticking out beyond it: about 3 cards, the gaps, and the peek on each side of the center. */
 @media (min-width: 60rem) {
   .stack {
-    --past-base: calc(var(--card-w) * 1.5 + var(--gap) + var(--peek));
+    --past-base: calc(var(--card-w) / 2 + var(--info-w) + var(--gap) + var(--peek));
   }
 
   .stage {
@@ -760,7 +725,7 @@ button {
     left: 50%;
     height: 100%;
     z-index: 200;
-    transform: translateX(calc(var(--card-w) * -1.5 - var(--gap)));
+    transform: translateX(calc(var(--card-w) / -2 - var(--gap) - var(--info-w)));
   }
 }
 

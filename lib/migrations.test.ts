@@ -2,6 +2,7 @@ import BetterSqlite3 from "better-sqlite3";
 import { describe, expect, it } from "vitest";
 import { openDatabase } from "./db";
 import { migrate, migrations } from "./migrations";
+import { DIFFICULTIES } from "./task";
 
 const VALID = {
   id: "00000000-0000-4000-8000-000000000001",
@@ -181,6 +182,23 @@ describe("task CHECK constraints", () => {
     db.pragma("foreign_keys = OFF");
     expect(() => insert(db, { group_name: "" })).toThrow();
     expect(() => insert(db, { group_name: " \t" })).toThrow();
+  });
+
+  // The CHECK is SQL in a migration, which is never edited, so it cannot read DIFFICULTIES. This
+  // keeps the two in step: a difficulty added to the list needs a migration that allows it.
+  it("allows exactly the difficulties in the shared list", () => {
+    const db = openDatabase(":memory:");
+    const row = db
+      .prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'task'")
+      .get() as { sql: string };
+    const listed = /difficulty\s+IN\s*\(([^)]*)\)/i.exec(row.sql)?.[1] ?? "";
+    const allowed = [...listed.matchAll(/'([^']*)'/g)].map((match) => match[1]);
+    expect(allowed.sort()).toEqual([...DIFFICULTIES].sort());
+    DIFFICULTIES.forEach((difficulty, place) => {
+      // Each row needs its own id, so the last digit of the made-up one is changed.
+      const id = VALID.id.slice(0, -1) + String(place + 1);
+      expect(() => insert(db, { id, difficulty }), difficulty).not.toThrow();
+    });
   });
 });
 

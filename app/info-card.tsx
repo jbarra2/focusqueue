@@ -1,9 +1,7 @@
 import { useRef } from "react";
 import { completedLabel, dueLabel, isOverdue } from "@/lib/format";
-import type { Task } from "@/lib/task";
+import { DIFFICULTY_LABEL, type Task } from "@/lib/task";
 import { useOverflows } from "./use-measure";
-
-const DIFFICULTY_LABEL = { low: "Low", med: "Medium", high: "High" } as const;
 
 type Props = {
   task: Task;

@@ -26,7 +26,7 @@ import {
   type View,
 } from "@/lib/filter";
 import { truncateLabel } from "@/lib/format";
-import type { Difficulty, Group } from "@/lib/task";
+import { DIFFICULTIES, DIFFICULTY_LABEL, type Difficulty, type Group } from "@/lib/task";
 import { AddTask } from "./add-task";
 
 // The search narrows the stack this long after the last key, not on every key.
@@ -59,7 +59,7 @@ function groupFromValue(value: string): GroupFilter {
 }
 
 function difficultyFromValue(value: string): Difficulty | null {
-  return value === "low" || value === "med" || value === "high" ? value : null;
+  return DIFFICULTIES.find((difficulty) => difficulty === value) ?? null;
 }
 
 /** A plain left click. Any other click, such as one that opens a new tab, is left to the browser. */
@@ -246,9 +246,11 @@ export function StackFilters({ filters, groups, today, count }: Props) {
               }
             >
               <option value="all">All</option>
-              <option value="low">Low</option>
-              <option value="med">Medium</option>
-              <option value="high">High</option>
+              {DIFFICULTIES.map((difficulty) => (
+                <option key={difficulty} value={difficulty}>
+                  {DIFFICULTY_LABEL[difficulty]}
+                </option>
+              ))}
             </select>
           </label>
           <label className="field">

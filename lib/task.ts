@@ -1,4 +1,18 @@
-export type Difficulty = "low" | "med" | "high";
+/**
+ * The difficulties, easiest first. The order is also the sort order for tasks on the same date,
+ * and the order of the choices on screen. The database CHECK has its own copy, which a test keeps
+ * in step with this list.
+ */
+export const DIFFICULTIES = ["low", "med", "high"] as const;
+
+export type Difficulty = (typeof DIFFICULTIES)[number];
+
+/** What each difficulty is called on screen. */
+export const DIFFICULTY_LABEL: Record<Difficulty, string> = {
+  low: "Low",
+  med: "Medium",
+  high: "High",
+};
 
 export type Group = {
   name: string;

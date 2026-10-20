@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { DIFFICULTIES } from "./task";
 import { GROUP_COLOR_COUNT } from "./theme";
 
 // Shared by the server, which enforces it, and the browser, which only uses it for messages.
@@ -49,7 +50,7 @@ export const taskInputSchema = z.object({
     .max(2000, "Keep the description under 2000 characters.")
     .default(""),
   dueDate: z.iso.date("Enter a due date."),
-  difficulty: z.enum(["low", "med", "high"], "Choose a difficulty."),
+  difficulty: z.enum(DIFFICULTIES, "Choose a difficulty."),
 });
 
 export type TaskInput = z.input<typeof taskInputSchema>;

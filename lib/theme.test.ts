@@ -79,19 +79,44 @@ describe.each(THEMES)("theme %s", (theme) => {
   });
 });
 
-// The color grid and the group chip in the Add dialog draw each slot from the same variables as
-// the cards, so a theme that changes a slot changes the cards and the grid together.
-describe("the swatch rules for the group colors", () => {
-  const rule = (selector: string, slot: number) =>
-    // The selector may be one of a list, so anything up to the opening brace is allowed after it.
-    new RegExp(`${selector}\\[data-slot="${slot}"\\][^{}]*\\{([^}]*)\\}`).exec(css)?.[1] ?? "";
+// The cards, the color grid and the group chip in the Add dialog all wear a group color. Each slot
+// sets its two variables once, and the three read them, so a theme that changes a slot changes all
+// of them together and one cannot drift from the others.
+describe("the slot rules for the group colors", () => {
+  // Comments are left out, so what they say about selectors is not mistaken for a rule. So are the
+  // lines that open a block such as @media, so a rule inside one is read as a rule of its own.
+  const bare = css.replace(/\/\*[\s\S]*?\*\//g, "").replace(/@[^{;]+\{/g, "");
+  const rules = [...bare.matchAll(/([^{}]+)\{([^}]*)\}/g)].map(([, selectors, body]) => ({
+    selectors: selectors.split(",").map((selector) => selector.trim()),
+    body,
+  }));
+  // Every rule that names the selector. A second one, in a media query or later on, could change
+  // what the first one sets, so each is expected once.
+  const rulesFor = (selector: string) =>
+    rules.filter(({ selectors }) => selectors.includes(selector));
 
-  it.each(slots)("draw slot %i from that slot's own fill and text color", (slot) => {
-    for (const selector of ["\\.card", "\\.swatch", "\\.swatch-chip"]) {
-      const body = rule(selector, slot);
-      const where = `${selector} slot ${slot}`;
-      expect(body, where).toMatch(new RegExp(`color:\\s*var\\(--group-${slot}-ink\\)`));
-      expect(body, where).toMatch(new RegExp(`background(-color)?:\\s*var\\(--group-${slot}\\)`));
-    }
+  it.each(slots)("sets slot %i's variables, once, from that slot's own colors", (slot) => {
+    const found = rulesFor(`[data-slot="${slot}"]`);
+    expect(found, `the rules for [data-slot="${slot}"]`).toHaveLength(1);
+    expect(found[0].body).toMatch(new RegExp(`--slot-bg:\\s*var\\(--group-${slot}\\)\\s*;`));
+    expect(found[0].body).toMatch(new RegExp(`--slot-ink:\\s*var\\(--group-${slot}-ink\\)\\s*;`));
+  });
+
+  it.each([".card", ".swatch", ".swatch-chip"])(
+    "paints %s from the slot variables, once",
+    (selector) => {
+      const found = rulesFor(`${selector}[data-slot]`);
+      expect(found, `the rules for ${selector}[data-slot]`).toHaveLength(1);
+      // background-color, not the shorthand: a taken swatch draws stripes with background-image.
+      expect(found[0].body).toMatch(/background-color:\s*var\(--slot-bg\)/);
+      expect(found[0].body).toMatch(/(^|[\s;])color:\s*var\(--slot-ink\)/);
+    },
+  );
+
+  it("names a group color in the eight slot rules and in no other rule", () => {
+    const naming = rules
+      .filter(({ body }) => body.includes("var(--group-"))
+      .flatMap(({ selectors }) => selectors);
+    expect(naming).toEqual(slots.map((slot) => `[data-slot="${slot}"]`));
   });
 });
