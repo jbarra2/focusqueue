@@ -585,6 +585,37 @@ describe("the stack in a page", () => {
       expect(card.getAttribute("tabindex")).toBe("-1");
     });
 
+    it("keeps the focus card a tab stop through a move between two long names, with no step between", () => {
+      // The focus card is a new element on every move. It must be built as a tab stop, not built
+      // as one that is not and corrected after the next measure.
+      vi.spyOn(Element.prototype, "scrollHeight", "get").mockImplementation(function (
+        this: Element,
+      ) {
+        return this.classList.contains("name-card") ? 400 : 0;
+      });
+      show([
+        task("a", { name: "A name that is much too long" }),
+        task("b", { name: "So is this" }),
+      ]);
+      expect(container.querySelector(".name-card")!.getAttribute("tabindex")).toBe("0");
+
+      const observer = new MutationObserver(() => {});
+      observer.observe(container, {
+        subtree: true,
+        attributes: true,
+        attributeFilter: ["tabindex"],
+      });
+      click(control("Next"));
+      const changes = observer
+        .takeRecords()
+        .filter((record) => (record.target as Element).classList.contains("name-card"));
+      observer.disconnect();
+
+      expect(focusCardName()).toBe("So is this");
+      expect(container.querySelector(".name-card")!.getAttribute("tabindex")).toBe("0");
+      expect(changes).toHaveLength(0);
+    });
+
     it("is measured again for the next task when the focus moves", () => {
       show([task("a", { description: "Short" }), task("b", { description: "Long" })]);
       const box = container.querySelector<HTMLElement>(".info-description")!;

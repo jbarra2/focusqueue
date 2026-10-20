@@ -1040,3 +1040,51 @@ planned and reviewed in Cursor.
   I have not tried it in your own browser, so please do.
   `AGENTS.md` is not part of this piece and is not staged.
 - `npm run verify` (561 tests, 2 skipped on Windows) and `npm run build` pass.
+
+## 20. Split the card stack (Claude Code)
+
+**Asked:**
+
+> Continue and also find out why two tests are skipped on verify runs.
+
+**What came back / what changed:**
+
+- This is a refactor and nothing else: the card stack does exactly what it did, in
+  smaller files, before Done, Edit and Delete make it bigger. `app/card-stack.tsx`
+  went from 386 lines to 188 and keeps the focus (by task, not by place), the
+  layout, and the Previous and Next buttons. Five files now sit beside it:
+  `info-card.tsx` (the details card and its description box), `name-card.tsx` (the
+  focus card), `stacked-card.tsx` (a card behind or ahead of it),
+  `use-stack-input.ts` (the arrow keys and the wheel) and `use-measure.ts` (the
+  check for text that does not fit). The wheel's two timing numbers are now in
+  `use-stack-input.ts`, so entry 15's "the numbers are in `app/card-stack.tsx`" is out
+  of date. The markup, class names and ids are unchanged. The details card is still
+  not keyed by task, and the focus card is still a plain article.
+- The page looks and behaves the same, and I checked that in a real browser rather
+  than by reading the code. I built the old code and the new code in a scratch copy
+  with made-up tasks and drove headless Chrome through each one at 1280 and 520 px
+  wide: first load, the right arrow twice, End, and the Completed view. For each of
+  those 8 states I saved a screenshot of the whole page, the page markup, and which
+  element had keyboard focus. All 24 files from the old and the new code are
+  identical to the byte.
+- `/code-review` raised 10 points. One was real. I had moved the check for a very
+  long name into the focus card, which is a new element on every move, so each move
+  drew the card for a moment as if it were not a tab stop and then corrected it. The
+  finished page looked the same, which is why the screenshots matched, but it was a
+  change, so the check is back in the stack, where it was before. A new test fails
+  with the old arrangement (it saw the correction) and passes now. Two small things
+  were also fixed: the key and wheel hook now takes only the moves it sends, and the
+  two things it relies on from the stack (the refs it keeps current, and why it is
+  told whether the stack exists) are written in its comments. I left the other
+  points on purpose. Three copies of the difficulty labels are stop B. Working out
+  each card's group color on every render is stop C. The cards drawing again on every
+  move, and the fixed ids such as `info-title`, are the same as before this split.
+  The heading in `AGENTS.md` is not part of this piece and is not staged.
+- You asked why two tests are skipped. They are the two folder-mode tests in
+  `lib/db.test.ts`. They check that the `data` folder is created readable by its
+  owner only, and that a folder that already exists keeps its mode. Windows has no
+  owner-only folder modes, so on Windows they would check nothing, and they are
+  skipped on purpose. On Linux they run, so the CI run for the last commit shows 563
+  passed and none skipped. You chose to leave it there, with no note in the README.
+- One test was added, the one above. No other test changed, and all of them pass.
+- `npm run verify` (562 tests, 2 skipped on Windows) and `npm run build` pass.
