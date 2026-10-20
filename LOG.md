@@ -930,3 +930,113 @@ planned and reviewed in Cursor.
   the folder mode is skipped on Windows and runs in CI on Linux.
   `AGENTS.md` is not part of this piece and is not staged.
 - `npm run verify` (441 tests, 2 skipped on Windows) and `npm run build` pass.
+
+## 19. Add a task (Claude Code)
+
+**Asked:**
+
+> There are no open tasks so I can't check that it works. Can you open a test server
+> on 3100 with example tasks?
+
+> Stop the preview server and continue with stop 2.
+
+> (after trying it) Reorganize the filters/options so that "Add a task" is on the
+> same row as search, appended to the right, and that row is above the other.
+> Center the rows horizontally on the screen, slightly lower vertical position.
+> Add more spacing between the "Up next", "due soon", ... buttons. Only add
+> spacing for this row
+
+> (then) What we can do for long group names is end it with ... after a certain
+> amount of characters. So that the box doesn't grow and we don't have layout
+> issues. Also let's put "Add a task" button on the left side of its row. And add
+> spacing between the two rows. Also add a little more spacing between the buttons
+> on the bottom row.
+
+**What came back / what changed:**
+
+- Your first request came after the hardening stop was staged. I started a copy of
+  the app on port 3100 with its own database and 16 made-up tasks in three groups,
+  so you could look at the queue. Your real database was not touched. You then asked
+  me to stop it, and I did. This entry is stop 2 of 6, and it is the first piece that
+  writes to the database from the page.
+- The header has an Add a task button. It opens a dialog with a visible label on
+  every field: Name, Group (optional), Due date (it starts on today), Difficulty,
+  and Description (optional). The Group box suggests the groups that already exist.
+  Cancel and Escape close it, and it opens blank each time.
+- The group color follows from the group you type. No group shows nothing. A group
+  that exists, in any letter case, shows its own color. A new group shows the grid
+  of 8 colors, two columns by four rows, with the first free color already chosen.
+  Each square says its color's name, and a color another group uses stays in the
+  grid, disabled, drawn with a diagonal stroke and named "<color>, taken". When all
+  8 are taken, a new group cannot be added: the sentence from the rules shows and
+  Add is disabled.
+- The write is a Server Action (`app/actions.ts`), and it is thin. The work is in
+  `lib/task-actions.ts`. It refuses anything that is not the form, reads only the
+  six fields it knows (so an extra field cannot set an id or mark a task done),
+  checks them with Zod before the database is even opened, and saves with the
+  existing `createTask`, which is one transaction. It answers with the new id or
+  with one sentence. An unexpected failure is logged on the server and shown as one
+  generic sentence, never SQLite's own text (`lib/action-error.ts`). After a save it
+  asks Next to draw the page again. If that step fails it is logged, and the task
+  still counts as added, because it is.
+- After an add, the page goes to Up next with no filters and the new task in focus,
+  and the search box is emptied. The box is never rewritten because of the address,
+  so the add does it on purpose, and the old search text can be typed again.
+- The form is sent from its own submit handler, not from a form action, because React
+  clears a form's fields after a form action even when the server said no. Here a
+  refusal keeps what you typed and shows its sentence in the dialog.
+- The arrow keys typed in the dialog no longer move the stack behind it.
+- `/code-review` raised six points. I fixed three. A failed page redraw after the
+  save would have been reported as a failed add, and the form would have said
+  nothing was saved. When no answer comes back at all, the sentence now says the
+  task may not have been saved and to look at the list, because a lost answer can
+  follow a real save. Cancel and Escape are held off while the form is being sent,
+  so a refusal on its way is not lost. I left three on purpose: a file sent in the
+  group field by a hand-made request means no group, the second check before the
+  database opens is deliberate, and the first-free-color rule is four lines in two
+  places.
+- `/security-review` found nothing at its confidence bar. It checked the action's
+  arguments, the SQL, error text, forged requests from another page or port
+  (Next refuses an Origin of null and any other origin), markup in task text, and
+  that no database code reaches the browser.
+- You then asked for the header to be rearranged, in two rounds, which are part of
+  this same stop because it is about where Add a task sits. The top row is now Add a
+  task at its left end, then Group, Difficulty, Search by name and Clear filters.
+  The view links (Up next, Due soon, and the rest) are the row under it. Both rows
+  are centered on the screen and sit a little lower than the title. The two rows
+  are 24 px apart (12 px before), and the view links are 28 px apart (8 px before).
+  Only the view links got wider gaps, and the top row's own gaps are unchanged. The
+  page order matches the screen, so Tab goes Add a task, Group, Difficulty, Search,
+  Clear filters, then the view links. Below 70rem (1120 px) the title moves to a row
+  of its own, so the top row keeps the whole width and stays on one line down to a
+  narrow window. On a phone-sized window it has to wrap.
+- A long group name no longer widens the Group menu. The menu shows a name longer
+  than 20 characters cut short and ending with an ellipsis, such as "Quarterly
+  planning…", and the space before the cut is dropped. An emoji or a letter with an
+  accent is never split. The option still holds the whole name, so choosing it
+  filters by the whole group, and while that group is chosen the whole name is the
+  menu's tooltip. The Add dialog still suggests the whole name. Two different names
+  that start with the same 19 characters would look the same in the menu. That is
+  rare, and it is on the later list.
+- I checked 1280, 1130, 1000 and 520 px wide in headless Chrome, with a made-up
+  80-character group name added: the rows are centered to the pixel, the Group menu
+  stays 164 px wide, the gaps are as above, and the dialog still opens from its new
+  place. I looked at the screenshots.
+- 120 tests were added. Each fix was undone one at a time to check that a test
+  fails: 46 of 46 were caught. One was not at first (reading the color with
+  `Number()` accepted `0x3`), so I added the missing cases.
+- I also ran the real thing in headless Chrome against a copy of the production
+  build with made-up data: 21 checks passed. The dialog opens with the name field
+  focused. The grid has two columns, with the three used colors marked taken. An
+  add succeeds and the request carries a real Origin. The new task is the focus
+  card, on its group's new color, and the list says 14 tasks. After Back, the older
+  page also says 14, not a stale 13. A refusal keeps the typed text. Escape closes
+  the dialog, focus goes back to the button, and the next opening is blank. I
+  looked at the screenshots too.
+- Not done, on purpose: marking a task done, editing and deleting come in later
+  stops, and so does the overall look of the page (colors, shadows, spacing), which
+  you now want done properly. A task whose answer was lost can still be added twice
+  if you retry, so the sentence tells you to check the list first.
+  I have not tried it in your own browser, so please do.
+  `AGENTS.md` is not part of this piece and is not staged.
+- `npm run verify` (561 tests, 2 skipped on Windows) and `npm run build` pass.

@@ -25,11 +25,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<Raw
       <DayRefresh today={today} />
       <header className="page-header">
         <h1>Focusqueue</h1>
-        <StackFilters
-          filters={filters}
-          groups={groups.map((group) => group.name)}
-          count={view.tasks.length}
-        />
+        <StackFilters filters={filters} groups={groups} today={today} count={view.tasks.length} />
       </header>
       <CardStack
         // A new key starts the stack fresh, on the first card, whenever the filters change.

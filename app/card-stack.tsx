@@ -156,6 +156,9 @@ export function CardStack({
       // Something other than an element, such as the document itself, has nothing to check.
       const target = event.target;
       if (!(target instanceof Element)) return;
+      // A dialog, such as Add a task, is not part of the stack. Its fields and links keep their
+      // own arrow keys, which includes a link, which the exception below would otherwise take.
+      if (target.closest("dialog, [data-no-stack]")) return;
       if (
         isEditableTarget(target.tagName, target instanceof HTMLElement && target.isContentEditable)
       ) {

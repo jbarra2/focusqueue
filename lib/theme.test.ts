@@ -78,3 +78,20 @@ describe.each(THEMES)("theme %s", (theme) => {
     expect(new Set(GROUP_COLOR_NAMES[theme]).size).toBe(GROUP_COLOR_COUNT);
   });
 });
+
+// The color grid and the group chip in the Add dialog draw each slot from the same variables as
+// the cards, so a theme that changes a slot changes the cards and the grid together.
+describe("the swatch rules for the group colors", () => {
+  const rule = (selector: string, slot: number) =>
+    // The selector may be one of a list, so anything up to the opening brace is allowed after it.
+    new RegExp(`${selector}\\[data-slot="${slot}"\\][^{}]*\\{([^}]*)\\}`).exec(css)?.[1] ?? "";
+
+  it.each(slots)("draw slot %i from that slot's own fill and text color", (slot) => {
+    for (const selector of ["\\.card", "\\.swatch", "\\.swatch-chip"]) {
+      const body = rule(selector, slot);
+      const where = `${selector} slot ${slot}`;
+      expect(body, where).toMatch(new RegExp(`color:\\s*var\\(--group-${slot}-ink\\)`));
+      expect(body, where).toMatch(new RegExp(`background(-color)?:\\s*var\\(--group-${slot}\\)`));
+    }
+  });
+});

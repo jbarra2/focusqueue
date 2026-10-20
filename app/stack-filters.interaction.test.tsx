@@ -16,11 +16,17 @@ const router = vi.hoisted(() => ({ push: vi.fn(), replace: vi.fn() }));
 
 vi.mock("next/navigation", () => ({ useRouter: () => router }));
 
+// The Add dialog calls this Server Action. Here it is a stand-in, so the real one, which reaches
+// the database, is never loaded.
+const addTaskAction = vi.hoisted(() => vi.fn());
+
+vi.mock("./actions", () => ({ addTaskAction }));
+
 const groups: Group[] = [
   { name: "Home", color: 1 },
   { name: "Work", color: 2 },
 ];
-const names = groups.map((group) => group.name);
+const TODAY = "2026-10-19";
 
 let container: HTMLDivElement;
 let root: Root;
@@ -28,7 +34,7 @@ let root: Root;
 function renderFilters(filters: Filters, count = 3) {
   // In a browser the address is the one the page was rendered for, so the simulated page's is too.
   window.history.replaceState(NEXT_ENTRY_STATE, "", filterHref(filters));
-  root.render(<StackFilters filters={filters} groups={names} count={count} />);
+  root.render(<StackFilters filters={filters} groups={groups} today={TODAY} count={count} />);
 }
 
 function show(filters: Filters = DEFAULT_FILTERS, count = 3) {
@@ -313,6 +319,69 @@ describe("the menus", () => {
       (o) => o.textContent,
     );
     expect(difficulty).toEqual(["All", "Low", "Medium", "High"]);
+  });
+
+  describe("a long group name", () => {
+    const LONG = "Quarterly planning meeting with the whole team";
+    const TWENTY = "Exactly twenty chars"; // 20 characters: not cut
+    const TWENTY_ONE = "Exactly twenty chars!"; // 21 characters: cut
+
+    function showGroups(names: string[], filters: Filters = DEFAULT_FILTERS) {
+      window.history.replaceState(NEXT_ENTRY_STATE, "", filterHref(filters));
+      const withGroups = names.map((name, i) => ({ name, color: i + 1 }));
+      act(() =>
+        root.render(<StackFilters filters={filters} groups={withGroups} today={TODAY} count={3} />),
+      );
+    }
+
+    function labels(): (string | null)[] {
+      return [...field("Group").querySelectorAll("option")].map((o) => o.textContent);
+    }
+
+    // The menu and the row it is in must not grow because of one long name.
+    it("is shown cut short, ending with an ellipsis, so the menu does not grow", () => {
+      showGroups([LONG, "Home"]);
+      expect(labels()).toEqual(["All groups", "Quarterly planning…", "Home", "No group"]);
+    });
+
+    it("keeps its full name as the value, and filters by the whole name when chosen", () => {
+      showGroups([LONG]);
+      const option = [...field("Group").querySelectorAll("option")][1] as HTMLOptionElement;
+      expect(option.value).toBe(`g:${LONG}`);
+      choose("Group", `g:${LONG}`);
+      expect(sent("push")).toBe(`/?${new URLSearchParams({ group: LONG })}`);
+    });
+
+    it("has the full name as a tooltip while it is the chosen group, and no tooltip otherwise", () => {
+      showGroups([LONG], { ...DEFAULT_FILTERS, group: { kind: "named", name: LONG } });
+      expect(field("Group").title).toBe(LONG);
+      expect(field("Group").value).toBe(`g:${LONG}`);
+      showGroups([LONG], { ...DEFAULT_FILTERS, group: { kind: "none" } });
+      expect(field("Group").title).toBe("");
+      showGroups([LONG]);
+      expect(field("Group").title).toBe("");
+    });
+
+    it("is not cut at 20 characters, and is cut at 21", () => {
+      expect(TWENTY).toHaveLength(20);
+      expect(TWENTY_ONE).toHaveLength(21);
+      showGroups([TWENTY, TWENTY_ONE]);
+      expect(labels()).toEqual(["All groups", TWENTY, "Exactly twenty char…", "No group"]);
+    });
+
+    it("leaves short names as they are", () => {
+      showGroups(["Home", "Work"]);
+      expect(labels()).toEqual(["All groups", "Home", "Work", "No group"]);
+    });
+
+    it("is cut in the menu only, and the Add dialog still suggests the whole name", () => {
+      showGroups([LONG]);
+      act(() => container.querySelector<HTMLButtonElement>("button.add-task")!.click());
+      const suggested = [...container.querySelectorAll("dialog datalist option")].map((o) =>
+        o.getAttribute("value"),
+      );
+      expect(suggested).toEqual([LONG]);
+    });
   });
 
   it("has a visible label on every control", () => {
@@ -735,7 +804,12 @@ describe("the search box", () => {
     window.history.replaceState(NEXT_ENTRY_STATE, "", "/?q=ac");
     act(() =>
       root.render(
-        <StackFilters filters={{ ...DEFAULT_FILTERS, q: "acb" }} groups={names} count={3} />,
+        <StackFilters
+          filters={{ ...DEFAULT_FILTERS, q: "acb" }}
+          groups={groups}
+          today={TODAY}
+          count={3}
+        />,
       ),
     );
     expect(search().value).toBe("ac");
@@ -757,7 +831,11 @@ describe("the search box", () => {
     // A search given twice, or too long, is no search on the server, so the page has none.
     for (const address of ["/?q=a&q=b", `/?q=${"x".repeat(250)}`]) {
       window.history.replaceState(NEXT_ENTRY_STATE, "", address);
-      act(() => root.render(<StackFilters filters={DEFAULT_FILTERS} groups={names} count={3} />));
+      act(() =>
+        root.render(
+          <StackFilters filters={DEFAULT_FILTERS} groups={groups} today={TODAY} count={3} />,
+        ),
+      );
       expect(search().value).toBe("");
       act(() => root.unmount());
       root = createRoot(container);
@@ -932,5 +1010,154 @@ describe("the announcement of the result", () => {
     expect(announcement()).toBe("Up next: 3 tasks");
     await server.answer("/?view=completed", 2);
     expect(announcement()).toBe("Completed: 2 tasks");
+  });
+});
+
+describe("Add a task from the header", () => {
+  const MOST_FILTERS: Filters = {
+    view: "later",
+    group: { kind: "named", name: "Home" },
+    difficulty: "high",
+    q: "plan",
+  };
+
+  function dialogField(name: string): HTMLInputElement {
+    return container.querySelector<HTMLInputElement>(`dialog [name=${name}]`)!;
+  }
+
+  /** Opens the dialog, fills the two required fields with a made-up task, and sends it. */
+  async function addTask(answer: unknown) {
+    addTaskAction.mockResolvedValue(answer);
+    act(() => container.querySelector<HTMLButtonElement>("button.add-task")!.click());
+    act(() => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(
+        dialogField("name"),
+        "Pay the rent",
+      );
+      dialogField("name").dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    act(() =>
+      container.querySelector<HTMLInputElement>("dialog [name=difficulty][value=med]")!.click(),
+    );
+    await act(async () => {
+      container
+        .querySelector("dialog form")!
+        .dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+    });
+  }
+
+  it("has the button and the dialog in the header, and the dialog is not inside the filter form", () => {
+    show();
+    expect(container.querySelector("button.add-task")!.textContent).toBe("Add a task");
+    expect(container.querySelector("form[role=search] dialog")).toBeNull();
+    expect(container.querySelector("form[role=search] .add-task")).toBeNull();
+  });
+
+  // The page is in the same order as the screen, so Tab goes the way the eye does: the top row has
+  // Add a task at its left end and then the filters, and the view links are the row under it.
+  it("puts Add a task at the left end of the top row, then the filters, and the view links under it", () => {
+    show();
+    const row = container.querySelector(".filter-row")!;
+    const search = row.querySelector("form[role=search]")!;
+    const add = row.querySelector("button.add-task")!;
+    const views = container.querySelector("nav[aria-label='Stacks']")!;
+    expect(row.parentElement).toBe(views.parentElement);
+    // Inside the row: the button, which is the first thing in it, and then the filters.
+    expect([...row.children].filter((el) => el !== row.querySelector("dialog"))).toEqual([
+      add,
+      search,
+    ]);
+    expect(add.compareDocumentPosition(search) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // The row is above the view links, in the page and so for Tab.
+    expect(row.compareDocumentPosition(views) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(search.querySelector("input[type=search]")).not.toBeNull();
+    expect(views.contains(add)).toBe(false);
+  });
+
+  it("gives the dialog the groups, so a name that exists keeps its color", () => {
+    show();
+    act(() => container.querySelector<HTMLButtonElement>("button.add-task")!.click());
+    expect(
+      [...container.querySelectorAll("dialog datalist option")].map((o) => o.getAttribute("value")),
+    ).toEqual(["Home", "Work"]);
+  });
+
+  it("starts the new task on today's date", () => {
+    show();
+    act(() => container.querySelector<HTMLButtonElement>("button.add-task")!.click());
+    expect(dialogField("dueDate").value).toBe(TODAY);
+  });
+
+  it("shows the new task on Up next with no filters, the task in focus, as one history entry", async () => {
+    show(MOST_FILTERS);
+    await addTask({ ok: true, id: "11111111-1111-4111-8111-111111111111" });
+    expect(router.push).toHaveBeenCalledTimes(1);
+    expect(router.push).toHaveBeenCalledWith("/?task=11111111-1111-4111-8111-111111111111", {
+      scroll: false,
+    });
+    expect(router.replace).not.toHaveBeenCalled();
+  });
+
+  it("marks Up next and clears the menus and the search box at once, before the server answers", async () => {
+    // The navigation is held open, as when the server is slow. The page shows the new choices while
+    // it waits, and drops them if the server never answers.
+    slowRouter();
+    show(MOST_FILTERS);
+    expect(search().value).toBe("plan");
+    await addTask({ ok: true, id: "new-id" });
+    expect(link("Up next").getAttribute("aria-current")).toBe("page");
+    expect(link("Later").getAttribute("aria-current")).toBeNull();
+    expect(field("Group").value).toBe("all");
+    expect(field("Difficulty").value).toBe("all");
+    expect(search().value).toBe("");
+  });
+
+  it("closes the dialog", async () => {
+    show();
+    await addTask({ ok: true, id: "new-id" });
+    expect(container.querySelector("dialog")!.hasAttribute("open")).toBe(false);
+  });
+
+  it("can send the old search text again afterwards, because the box and the address agree it is gone", async () => {
+    show({ ...DEFAULT_FILTERS, q: "plan" });
+    await addTask({ ok: true, id: "new-id" });
+    // The server's answer: Up next, nothing searched.
+    reply("/?task=new-id");
+    expect(search().value).toBe("");
+    type("plan");
+    wait(250);
+    expect(sent("replace")).toBe("/?q=plan");
+  });
+
+  it("drops a search that was still waiting for its pause", async () => {
+    show();
+    type("abc");
+    await addTask({ ok: true, id: "new-id" });
+    wait(1000);
+    expect(router.replace).not.toHaveBeenCalled();
+    expect(search().value).toBe("");
+  });
+
+  it("changes nothing when the task is refused or the action fails", async () => {
+    show(MOST_FILTERS);
+    await addTask({ ok: false, message: "Enter a name." });
+    expect(router.push).not.toHaveBeenCalled();
+    expect(search().value).toBe("plan");
+    expect(link("Later").getAttribute("aria-current")).toBe("page");
+    expect(field("Group").value).toBe("g:Home");
+    expect(container.querySelector("dialog")!.hasAttribute("open")).toBe(true);
+    expect(container.querySelector("dialog [role=alert]")!.textContent).toBe("Enter a name.");
+  });
+
+  it("builds on the choices of a menu change that is still waiting for the server", async () => {
+    // A task is added while an earlier choice has not been answered yet. The new task still goes to
+    // Up next with no filters, whatever was chosen before.
+    const server = slowRouter();
+    show();
+    choose("Difficulty", "high");
+    await addTask({ ok: true, id: "new-id" });
+    expect(sent("push", 1)).toBe("/?task=new-id");
+    await server.answer("/?task=new-id");
+    expect(field("Difficulty").value).toBe("all");
   });
 });

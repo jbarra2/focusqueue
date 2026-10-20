@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { completedLabel, dueLabel, formatDay, isOverdue } from "./format";
+import { completedLabel, dueLabel, formatDay, isOverdue, truncateLabel } from "./format";
 import { addDays } from "./date";
 
 // An open task is due on a day. A done task has the day it was completed as well.
@@ -68,6 +68,53 @@ describe("isOverdue", () => {
     expect(
       isOverdue({ dueDate: "2026-10-01", completedAt: "2026-10-13T12:00:00.000Z" }, today),
     ).toBe(false);
+  });
+});
+
+describe("truncateLabel", () => {
+  it("leaves text that fits as it is, including exactly the limit", () => {
+    expect(truncateLabel("Home", 20)).toBe("Home");
+    expect(truncateLabel("", 20)).toBe("");
+    expect(truncateLabel("a".repeat(20), 20)).toBe("a".repeat(20));
+  });
+
+  it("cuts longer text so that it is the limit long, ending with an ellipsis", () => {
+    const cut = truncateLabel("a".repeat(21), 20);
+    expect(cut).toBe(`${"a".repeat(19)}…`);
+    expect(Array.from(cut)).toHaveLength(20);
+  });
+
+  it("drops a space that would sit before the ellipsis", () => {
+    expect(truncateLabel("Quarterly planning meeting with the whole team", 20)).toBe(
+      "Quarterly planning…",
+    );
+    expect(truncateLabel("ab     cdef", 5)).toBe("ab…");
+  });
+
+  it("counts what a person sees as one character, so an emoji or an accent is not split", () => {
+    // Each emoji is two UTF-16 units, and the family is seven code points joined into one.
+    expect(truncateLabel("😀".repeat(30), 5)).toBe(`${"😀".repeat(4)}…`);
+    const family = "👨‍👩‍👧‍👦";
+    expect(truncateLabel(family.repeat(6), 4)).toBe(`${family.repeat(3)}…`);
+    // "é" written as an e and a combining accent is one character.
+    const accented = "é";
+    expect(truncateLabel(accented.repeat(10), 4)).toBe(`${accented.repeat(3)}…`);
+  });
+
+  it("never cuts text that has as many characters as the limit, however many code units", () => {
+    expect(truncateLabel("😀😀😀", 3)).toBe("😀😀😀");
+  });
+
+  it("gives just the ellipsis for a limit of 1 or less, and does not throw", () => {
+    expect(truncateLabel("abc", 1)).toBe("…");
+    expect(truncateLabel("abc", 0)).toBe("…");
+    expect(truncateLabel("abc", -3)).toBe("…");
+  });
+
+  it("does not change the text it was given", () => {
+    const text = "x".repeat(40);
+    truncateLabel(text, 10);
+    expect(text).toHaveLength(40);
   });
 });
 

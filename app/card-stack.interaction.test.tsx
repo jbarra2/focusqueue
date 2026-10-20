@@ -690,5 +690,43 @@ describe("the stack in a page", () => {
       expect(event.defaultPrevented).toBe(false);
       expect(focusCardName()).toBe("Task a");
     });
+
+    // A link takes the left and right arrows from the page (the test above). In a dialog, such as
+    // Add a task, it must keep them, and so must anything marked data-no-stack.
+    it.each([
+      ["a dialog", () => document.createElement("dialog")],
+      [
+        "an element marked data-no-stack",
+        () => {
+          const box = document.createElement("div");
+          box.dataset.noStack = "";
+          return box;
+        },
+      ],
+    ])("leaves every key to a link inside %s", (_label, makeBox) => {
+      show([A, B, C]);
+      const box = makeBox();
+      const link = document.createElement("a");
+      link.href = "/";
+      box.append(link);
+      document.body.append(box);
+      for (const key of ["ArrowRight", "ArrowLeft", "Home", "End"]) {
+        const event = press(key, {}, link);
+        expect(event.defaultPrevented, key).toBe(false);
+      }
+      expect(focusCardName()).toBe("Task a");
+    });
+
+    it("leaves the arrow keys to a button inside a dialog, and still moves from the page body", () => {
+      show([A, B, C]);
+      const dialog = document.createElement("dialog");
+      const button = document.createElement("button");
+      dialog.append(button);
+      document.body.append(dialog);
+      expect(press("ArrowRight", {}, button).defaultPrevented).toBe(false);
+      expect(focusCardName()).toBe("Task a");
+      expect(press("ArrowRight").defaultPrevented).toBe(true);
+      expect(focusCardName()).toBe("Task b");
+    });
   });
 });

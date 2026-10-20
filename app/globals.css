@@ -117,30 +117,59 @@ button {
   color: var(--color-muted);
 }
 
-/* The header: the title, the view links, and the filters. It wraps on a narrow screen. */
+/* The header: the title at the left, and the two filter rows centered on the screen, a little
+   lower than the title. The side columns are equal, so the rows stay centered whatever the width of
+   the title. The middle column is as wide as the widest row, and a row wraps when there is not
+   enough room. Below 70rem the title has a row of its own above them, which leaves the whole width
+   to the top row, so Add a task stays on the search row down to a narrow window. */
 .page-header {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
+  display: grid;
+  grid-template-columns: minmax(9rem, 1fr) auto minmax(9rem, 1fr);
+  align-items: start;
   gap: 0.75rem 2rem;
   margin-bottom: 1.5rem;
 }
 
 .page-header h1 {
+  grid-column: 1;
   margin: 0;
 }
 
 .filters {
   display: flex;
-  flex: 1 1 24rem;
+  grid-column: 2;
   flex-direction: column;
-  gap: 0.75rem;
+  align-items: center;
+  gap: 1.5rem;
+  margin-top: 1rem;
 }
 
+@media (max-width: 70rem) {
+  .page-header {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .filters {
+    grid-column: 1;
+    margin-top: 0;
+  }
+}
+
+/* The top row: Add a task at its left end, then the filters. */
+.filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 0.5rem 1rem;
+}
+
+/* The second row. Its buttons are spaced wider than the buttons of the row above. */
 .views {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
+  justify-content: center;
+  gap: 0.5rem 1.75rem;
 }
 
 /* The current view is told apart by a thicker border, a filled background, and an underline, so
@@ -170,6 +199,7 @@ button {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
+  justify-content: center;
   gap: 0.5rem 1rem;
 }
 
@@ -496,6 +526,213 @@ button {
   overflow: hidden;
   clip-path: inset(50%);
   white-space: nowrap;
+}
+
+/* Add a task: the dialog and its form. The button is in the top filter row. */
+.add-dialog {
+  width: min(32rem, calc(100vw - 2rem));
+  max-height: calc(100dvh - 2rem);
+  padding: 1.25rem;
+  border: 1px solid var(--color-muted);
+  border-radius: 0.75rem;
+  background: var(--card-bg);
+  color: var(--card-ink);
+}
+
+.add-dialog::backdrop {
+  background: rgb(0 0 0 / 0.45);
+}
+
+.add-dialog h2 {
+  margin: 0 0 1rem;
+}
+
+.add-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+}
+
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.form-field label,
+.form-field legend {
+  padding: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.form-field input[type="text"],
+.form-field input[type="date"],
+.form-field textarea {
+  width: 100%;
+  padding: 0.375rem 0.5rem;
+  font: inherit;
+}
+
+.form-field textarea {
+  resize: vertical;
+}
+
+.choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.25rem;
+}
+
+.form-field .choice {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 1rem;
+  font-weight: 400;
+}
+
+.form-note {
+  margin: 0;
+}
+
+.form-error {
+  margin: 0;
+  color: var(--color-danger);
+  font-weight: 600;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+/* The group color grid: 8 squares, two columns by four rows. Each square is a radio button with
+   the color's name in it. The real radio button covers the square and is not drawn, so the square
+   shows the state: a check mark and a thicker border when chosen, a diagonal stroke when taken. */
+.color-grid {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.color-grid legend {
+  margin-bottom: 0.25rem;
+  padding: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.swatches {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.5rem;
+}
+
+.swatch {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.75rem;
+  padding: 0.25rem 0.5rem;
+  border: 2px solid var(--color-muted);
+  border-radius: 0.5rem;
+  text-align: center;
+  cursor: pointer;
+}
+
+.swatch input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: inherit;
+}
+
+.swatch:has(input:checked) {
+  border-color: currentColor;
+  box-shadow: inset 0 0 0 2px currentColor;
+  font-weight: 600;
+}
+
+.swatch:has(input:checked) span::before {
+  content: "\2713\00a0";
+}
+
+.swatch:has(input:focus-visible) {
+  outline: 3px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.swatch[data-taken] {
+  background-image: repeating-linear-gradient(
+    135deg,
+    transparent 0 0.5rem,
+    rgb(42 33 24 / 0.3) 0.5rem 0.625rem
+  );
+  cursor: not-allowed;
+}
+
+.swatch-chip {
+  display: inline-block;
+  padding: 0 0.5rem;
+  border-radius: 0.25rem;
+  font-weight: 600;
+}
+
+.swatch[data-slot="1"],
+.swatch-chip[data-slot="1"] {
+  background-color: var(--group-1);
+  color: var(--group-1-ink);
+}
+
+.swatch[data-slot="2"],
+.swatch-chip[data-slot="2"] {
+  background-color: var(--group-2);
+  color: var(--group-2-ink);
+}
+
+.swatch[data-slot="3"],
+.swatch-chip[data-slot="3"] {
+  background-color: var(--group-3);
+  color: var(--group-3-ink);
+}
+
+.swatch[data-slot="4"],
+.swatch-chip[data-slot="4"] {
+  background-color: var(--group-4);
+  color: var(--group-4-ink);
+}
+
+.swatch[data-slot="5"],
+.swatch-chip[data-slot="5"] {
+  background-color: var(--group-5);
+  color: var(--group-5-ink);
+}
+
+.swatch[data-slot="6"],
+.swatch-chip[data-slot="6"] {
+  background-color: var(--group-6);
+  color: var(--group-6-ink);
+}
+
+.swatch[data-slot="7"],
+.swatch-chip[data-slot="7"] {
+  background-color: var(--group-7);
+  color: var(--group-7-ink);
+}
+
+.swatch[data-slot="8"],
+.swatch-chip[data-slot="8"] {
+  background-color: var(--group-8);
+  color: var(--group-8-ink);
 }
 
 /* Wide enough for the info card to sit left of the focus card, with the first past card

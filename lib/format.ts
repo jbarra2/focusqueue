@@ -29,6 +29,24 @@ export function dueLabel(task: Dated, today: string): string {
   return formatDay(task.dueDate);
 }
 
+const characters = new Intl.Segmenter(undefined, { granularity: "grapheme" });
+
+/**
+ * Text cut to at most `max` characters, ending with an ellipsis when it was cut. A character is
+ * what a person sees as one, so an emoji or a letter with an accent is never split, and a space
+ * before the cut is dropped. It is for showing only: the full text is kept where it is stored.
+ */
+export function truncateLabel(text: string, max: number): string {
+  const parts = Array.from(characters.segment(text), (part) => part.segment);
+  if (parts.length <= max) return text;
+  return (
+    parts
+      .slice(0, Math.max(0, max - 1))
+      .join("")
+      .trimEnd() + "…"
+  );
+}
+
 /** The local day an ISO 8601 timestamp falls on, such as "Fri, Oct 17". */
 export function completedLabel(completedAt: string): string {
   return formatDay(localDay(completedAt));

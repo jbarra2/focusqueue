@@ -25,15 +25,24 @@ import {
   type GroupFilter,
   type View,
 } from "@/lib/filter";
-import type { Difficulty } from "@/lib/task";
+import { truncateLabel } from "@/lib/format";
+import type { Difficulty, Group } from "@/lib/task";
+import { AddTask } from "./add-task";
 
 // The search narrows the stack this long after the last key, not on every key.
 const SEARCH_PAUSE_MS = 250;
 
+// The Group menu shows a group name longer than this cut short, ending with an ellipsis, so one
+// long name cannot make the menu, and the row it is in, grow. The option's value is still the full
+// name, so choosing it filters by the whole group.
+const GROUP_MENU_MAX_CHARACTERS = 20;
+
 type Props = {
   filters: Filters;
-  /** The names of the groups in use, for the group menu. */
-  groups: string[];
+  /** The groups in use: their names fill the group menu, and the Add dialog needs their colors. */
+  groups: Group[];
+  /** Today as YYYY-MM-DD, the due date a task added from the header starts with. */
+  today: string;
   /** How many tasks the stack shows now, announced to screen readers when it changes. */
   count: number;
 };
@@ -67,7 +76,7 @@ function isPlainClick(event: MouseEvent): boolean {
 // only, Back or Forward, which the browser announces with popstate. Working out from the props
 // whether a change of the address was this box's own or someone else's depends on the order in
 // which React commits and runs effects, and that went wrong in a real browser under load.
-export function StackFilters({ filters, groups, count }: Props) {
+export function StackFilters({ filters, groups, today, count }: Props) {
   const router = useRouter();
   const [shown, setShown] = useOptimistic(filters);
   const [text, setText] = useState(filters.q);
@@ -118,16 +127,34 @@ export function StackFilters({ filters, groups, count }: Props) {
   }, [cancelSearch]);
 
   const navigate = useCallback(
-    (patch: Partial<Filters>, mode: "push" | "replace", query: string) => {
+    (
+      patch: Partial<Filters>,
+      mode: "push" | "replace",
+      query: string,
+      focusTaskId: string | null = null,
+    ) => {
       cancelSearch();
       const next: Filters = { ...shownRef.current, ...patch, q: query.trim() };
       intendedQ.current = next.q;
       startTransition(() => {
         setShown(next);
-        router[mode](filterHref(next), { scroll: false });
+        router[mode](filterHref(next, focusTaskId), { scroll: false });
       });
     },
     [cancelSearch, router, setShown],
+  );
+
+  // A task was just added. The page shows it: Up next with no filters, which always has it, and it
+  // is the card that takes the focus. The search box is cleared with the filters. The box is never
+  // rewritten because of the address, so it is emptied here, and navigate sets intendedQ to the
+  // same empty text and drops a search that was waiting. Without that, the old search text would
+  // look like what the address already has, and typing it again would send nothing.
+  const showNewTask = useCallback(
+    (id: string) => {
+      setText("");
+      navigate(DEFAULT_FILTERS, "push", "", id);
+    },
+    [navigate],
   );
 
   function sendSearch(value: string) {
@@ -185,6 +212,66 @@ export function StackFilters({ filters, groups, count }: Props) {
 
   return (
     <div className="filters">
+      {/* The search row is the top row, and the view links are under it. The page is in the same
+          order as the screen, so Tab goes the way the eye does. */}
+      <div className="filter-row">
+        {/* At the left end of the row, but not inside the form: forms cannot be nested. */}
+        <AddTask groups={groups} today={today} onAdded={showNewTask} />
+        <form className="controls" role="search" aria-label="Filter tasks" onSubmit={onSubmit}>
+          <label className="field">
+            <span>Group</span>
+            <select
+              value={groupValue(shown.group)}
+              // The menu shows a long name cut short, so the full name is the tooltip while it is chosen.
+              title={shown.group.kind === "named" ? shown.group.name : undefined}
+              onChange={(event) =>
+                navigate({ group: groupFromValue(event.target.value) }, "push", text)
+              }
+            >
+              <option value="all">All groups</option>
+              {groups.map(({ name }) => (
+                <option key={name} value={`g:${name}`}>
+                  {truncateLabel(name, GROUP_MENU_MAX_CHARACTERS)}
+                </option>
+              ))}
+              <option value="none">No group</option>
+            </select>
+          </label>
+          <label className="field">
+            <span>Difficulty</span>
+            <select
+              value={shown.difficulty ?? "all"}
+              onChange={(event) =>
+                navigate({ difficulty: difficultyFromValue(event.target.value) }, "push", text)
+              }
+            >
+              <option value="all">All</option>
+              <option value="low">Low</option>
+              <option value="med">Medium</option>
+              <option value="high">High</option>
+            </select>
+          </label>
+          <label className="field">
+            <span>Search by name</span>
+            <input
+              type="search"
+              value={text}
+              maxLength={SEARCH_MAX_LENGTH}
+              autoComplete="off"
+              onChange={onSearchChange}
+              onCompositionEnd={onCompositionEnd}
+            />
+          </label>
+          <a
+            className="clear-filters"
+            href={filterHref({ ...DEFAULT_FILTERS, view: shown.view })}
+            aria-disabled={canClear ? undefined : true}
+            onClick={onClearClick}
+          >
+            Clear filters
+          </a>
+        </form>
+      </div>
       <nav className="views" aria-label="Stacks">
         {VIEWS.map(({ id, label }) => (
           <a
@@ -198,58 +285,6 @@ export function StackFilters({ filters, groups, count }: Props) {
           </a>
         ))}
       </nav>
-      <form className="controls" role="search" aria-label="Filter tasks" onSubmit={onSubmit}>
-        <label className="field">
-          <span>Group</span>
-          <select
-            value={groupValue(shown.group)}
-            onChange={(event) =>
-              navigate({ group: groupFromValue(event.target.value) }, "push", text)
-            }
-          >
-            <option value="all">All groups</option>
-            {groups.map((name) => (
-              <option key={name} value={`g:${name}`}>
-                {name}
-              </option>
-            ))}
-            <option value="none">No group</option>
-          </select>
-        </label>
-        <label className="field">
-          <span>Difficulty</span>
-          <select
-            value={shown.difficulty ?? "all"}
-            onChange={(event) =>
-              navigate({ difficulty: difficultyFromValue(event.target.value) }, "push", text)
-            }
-          >
-            <option value="all">All</option>
-            <option value="low">Low</option>
-            <option value="med">Medium</option>
-            <option value="high">High</option>
-          </select>
-        </label>
-        <label className="field">
-          <span>Search by name</span>
-          <input
-            type="search"
-            value={text}
-            maxLength={SEARCH_MAX_LENGTH}
-            autoComplete="off"
-            onChange={onSearchChange}
-            onCompositionEnd={onCompositionEnd}
-          />
-        </label>
-        <a
-          className="clear-filters"
-          href={filterHref({ ...DEFAULT_FILTERS, view: shown.view })}
-          aria-disabled={canClear ? undefined : true}
-          onClick={onClearClick}
-        >
-          Clear filters
-        </a>
-      </form>
       {/* The stack is a new element after every change, so it cannot announce the result. */}
       <p className="visually-hidden" role="status">
         {viewLabel(filters.view)}: {count} {count === 1 ? "task" : "tasks"}
