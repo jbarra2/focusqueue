@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Database } from "better-sqlite3";
 import { GENERIC_ACTION_ERROR } from "./action-error";
 import { openDatabase } from "./db";
-import { COLOR_TAKEN_MESSAGE, GROUP_LIMIT_MESSAGE } from "./task-schema";
+import { COLOR_TAKEN_MESSAGE, GROUP_LIMIT_MESSAGE, taskInputSchema } from "./task-schema";
 import { addTask, type AddTaskResult } from "./task-actions";
 import { listGroups, listTasks } from "./tasks";
 
@@ -129,7 +129,6 @@ describe("addTask", () => {
     ["a name of only spaces", { name: "   " }, "Enter a name."],
     ["a name of only zero-width spaces", { name: "\u200B\u200B" }, "Enter a name."],
     ["a name that is too long", { name: "x".repeat(201) }, "Keep the name under 200 characters."],
-    ["a name that is a file", { name: new Blob(["x"]) }, "Enter a name."],
     ["no due date", { dueDate: undefined }, "Enter a due date."],
     ["a date that does not exist", { dueDate: "2026-02-30" }, "Enter a due date."],
     ["a date without padding", { dueDate: "2026-2-3" }, "Enter a due date."],
@@ -187,6 +186,43 @@ describe("addTask", () => {
     expect(refused(addTask(openDb, notAForm))).toBe(GENERIC_ACTION_ERROR);
     expect(count()).toBe(0);
     expect(openDb).not.toHaveBeenCalled();
+    // The server's log gets one line, which says what kind of request it was and nothing else.
+    expect(consoleError).toHaveBeenCalledTimes(1);
+    expect(String(consoleError.mock.calls[0][0])).toContain("not form data");
+  });
+
+  // The form only ever sends text, so a file under one of its fields can only come from a
+  // hand-made request. There is no sentence a person could act on, so the answer is the generic
+  // one for every field, the database is not opened, and the log gets one line without the file.
+  // The fields come from the task schema, so a field added there and left out of the check fails.
+  it.each(Object.keys(taskInputSchema.shape))(
+    "refuses a file in the %s field with the generic sentence, and never opens the database",
+    (field) => {
+      const file = new File(["made-up file content"], "made-up-name.txt");
+      expect(refused(addTask(openDb, form({ [field]: file })))).toBe(GENERIC_ACTION_ERROR);
+      expect(count()).toBe(0);
+      expect(listGroups(db)).toEqual([]);
+      expect(openDb).not.toHaveBeenCalled();
+      expect(consoleError).toHaveBeenCalledTimes(1);
+      const line = String(consoleError.mock.calls[0][0]);
+      expect(line).toContain(`the ${field} field`);
+      expect(line).not.toContain("made-up file content");
+      expect(line).not.toContain("made-up-name.txt");
+    },
+  );
+
+  it("refuses a file sent as a second value of a field, though the first value is text", () => {
+    const second = form();
+    second.append("description", new Blob(["x"]));
+    expect(refused(addTask(openDb, second))).toBe(GENERIC_ACTION_ERROR);
+    expect(count()).toBe(0);
+    expect(openDb).not.toHaveBeenCalled();
+    expect(consoleError).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not look at a file under a field it does not read", () => {
+    expect(addTask(openDb, form({ attachment: new Blob(["x"]) })).ok).toBe(true);
+    expect(count()).toBe(1);
   });
 
   it("reads only the fields it knows, so extra ones cannot set anything", () => {

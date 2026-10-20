@@ -1,6 +1,7 @@
 "use client";
 
 // Next logs the real error on the server. The page shows one sentence, never the message or stack.
+// The layout puts it in the full-height column, like every page.
 export default function ErrorPage({ retry }: { retry: () => void }) {
   return (
     <main>

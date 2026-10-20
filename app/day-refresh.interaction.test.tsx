@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { act } from "react";
+import { act, StrictMode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { msUntilMidnight } from "@/lib/date";
@@ -147,5 +147,33 @@ describe("DayRefresh when the tab comes back", () => {
     setVisibility("visible");
     expect(router.refresh).not.toHaveBeenCalled();
     root = createRoot(container);
+  });
+});
+
+describe("DayRefresh under StrictMode", () => {
+  // In development React runs the effect, undoes it and runs it again, so a timer or a listener
+  // that was not cleaned up would still be there, and the page would refresh twice.
+  function showStrict(today: string) {
+    act(() =>
+      root.render(
+        <StrictMode>
+          <DayRefresh today={today} />
+        </StrictMode>,
+      ),
+    );
+  }
+
+  it("refreshes once at midnight, so one timer is left", () => {
+    showStrict(DAY);
+    wait(msUntilMidnight(new Date()) + 2000);
+    expect(router.refresh).toHaveBeenCalledTimes(1);
+  });
+
+  it("refreshes once when the tab becomes visible on a later day, so one listener is left", () => {
+    showStrict(DAY);
+    setVisibility("hidden");
+    vi.setSystemTime(new Date(2026, 9, 20, 7, 0));
+    setVisibility("visible");
+    expect(router.refresh).toHaveBeenCalledTimes(1);
   });
 });

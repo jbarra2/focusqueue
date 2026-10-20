@@ -21,20 +21,24 @@ export default async function Home({ searchParams }: { searchParams: Promise<Raw
   const { filters, focusTaskId } = parseSearchParams(await searchParams, groups);
   const view = stackView(queue, filters);
   return (
-    <main>
-      <DayRefresh today={today} />
+    // The header is outside main, so it is the page's banner. The layout wraps both in the
+    // full-height column.
+    <>
       <header className="page-header">
         <h1>Focusqueue</h1>
         <StackFilters filters={filters} groups={groups} today={today} count={view.tasks.length} />
       </header>
-      <CardStack
-        // A new key starts the stack fresh, on the first card, whenever the filters change.
-        key={filterHref(filters, focusTaskId)}
-        {...view}
-        groups={groups}
-        today={today}
-        focusTaskId={focusTaskId}
-      />
-    </main>
+      <main>
+        <DayRefresh today={today} />
+        <CardStack
+          // A new key starts the stack fresh, on the first card, whenever the filters change.
+          key={filterHref(filters, focusTaskId)}
+          {...view}
+          groups={groups}
+          today={today}
+          focusTaskId={focusTaskId}
+        />
+      </main>
+    </>
   );
 }

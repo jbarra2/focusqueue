@@ -48,6 +48,11 @@ function listOf(html: string): string {
   return html.slice(html.indexOf("<ol"), html.indexOf("</ol>"));
 }
 
+/** The markup of the info card, which comes right before the list of cards. */
+function infoOf(html: string): string {
+  return html.slice(html.indexOf('class="card info-card"'), html.indexOf("<ol"));
+}
+
 describe("CardStack", () => {
   it("shows each task once, in Up next order", () => {
     const html = render([
@@ -93,13 +98,27 @@ describe("CardStack", () => {
     );
     expect(count(html, "info-card")).toBe(1);
     expect(html.indexOf("info-card")).toBeLessThan(html.indexOf("<ol"));
-    const info = html.slice(html.indexOf("<aside"), html.indexOf("</aside>"));
+    const info = infoOf(html);
     expect(info).toContain("Plan trip");
     expect(info).toContain("Home");
     expect(info).toContain("Overdue · Mon, Oct 12");
     expect(info).toContain("High");
     expect(info).toContain("Book the train");
     expect(info).not.toContain("Not shown");
+  });
+
+  it("makes the info card a group named Details, and not a landmark of its own", () => {
+    // A complementary landmark (an aside) inside main is flagged by axe, and a group is not.
+    const html = render([task({ name: "Plan trip" })]);
+    expect(html).not.toContain("<aside");
+    expect(html).not.toContain("</aside>");
+    const card = html.slice(
+      html.indexOf('<div class="card info-card"'),
+      html.indexOf(">", html.indexOf('class="card info-card"')),
+    );
+    expect(card).toContain('role="group"');
+    expect(card).toContain('aria-labelledby="info-title"');
+    expect(html).toContain('<h2 id="info-title">Details</h2>');
   });
 
   it("says no group and no description when they are empty", () => {
@@ -111,7 +130,7 @@ describe("CardStack", () => {
   it("cuts a long group name on the info card, and keeps the full name as its tooltip", () => {
     const longName = "G".repeat(100);
     const html = render([task({ name: "Wide", group: longName })], [{ name: longName, color: 2 }]);
-    const info = html.slice(html.indexOf("<aside"), html.indexOf("</aside>"));
+    const info = infoOf(html);
     expect(info).toContain(`class="info-group" title="${longName}"`);
     // A task with no group has nothing to show as a tooltip.
     const bare = render([task({ name: "Bare" })]);
@@ -175,7 +194,7 @@ describe("CardStack", () => {
     // A person can type this into a description. It is plain text, so the tags show up as
     // characters and nothing is made bold.
     const html = render([task({ description: "<b>not bold</b> & plain" })]);
-    const info = html.slice(html.indexOf("<aside"), html.indexOf("</aside>"));
+    const info = infoOf(html);
     expect(info).toContain("&lt;b&gt;not bold&lt;/b&gt; &amp; plain");
     expect(info).not.toContain("<b>");
     expect(info).not.toContain("</b>");
@@ -183,7 +202,7 @@ describe("CardStack", () => {
 
   it("puts the description in its own box, with no tab stop on the card", () => {
     const html = render([task({ description: "Line one\nLine two" })]);
-    const info = html.slice(html.indexOf("<aside"), html.indexOf("</aside>"));
+    const info = infoOf(html);
     expect(count(info, 'class="info-description task-description"')).toBe(1);
     expect(info).toContain("Line one\nLine two");
     // The box is a tab stop only when its text overflows, which only a browser can tell.
@@ -308,8 +327,7 @@ describe("CardStack in the other views", () => {
   });
 
   it("shows when a done task was completed, and never for an open task", () => {
-    const info = (html: string) => html.slice(html.indexOf("<aside"), html.indexOf("</aside>"));
-    expect(info(render([finished], [], completedView))).toMatch(
+    expect(infoOf(render([finished], [], completedView))).toMatch(
       /<dt>Completed<\/dt><dd>Tue, Oct 13<\/dd>/,
     );
     expect(render([task({ name: "Open job" })])).not.toContain(">Completed<");

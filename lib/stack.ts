@@ -7,21 +7,32 @@ export type Move = "previous" | "next" | "first" | "last";
 /** Cards further than this from the current one are hidden. */
 export const STACK_REACH = 6;
 
+function clamp(value: number, low: number, high: number): number {
+  return Math.min(Math.max(value, low), high);
+}
+
+/** The place a move asks for, before it is kept inside the list. */
+function targetOf(current: number, count: number, move: Move | number): number {
+  if (typeof move === "number") return move;
+  switch (move) {
+    case "previous":
+      return current - 1;
+    case "next":
+      return current + 1;
+    case "first":
+      return 0;
+    case "last":
+      return count - 1;
+  }
+}
+
 /** A move or a direct index, clamped to the list. An empty list always gives 0. */
 export function moveIndex(current: number, count: number, move: Move | number): number {
   if (count <= 0) return 0;
-  const target =
-    typeof move === "number"
-      ? move
-      : move === "previous"
-        ? current - 1
-        : move === "next"
-          ? current + 1
-          : move === "first"
-            ? 0
-            : count - 1;
-  if (!Number.isInteger(target)) return Math.min(Math.max(Math.trunc(current) || 0, 0), count - 1);
-  return Math.min(Math.max(target, 0), count - 1);
+  const target = targetOf(current, count, move);
+  // A place that is not a whole number goes nowhere: the card stays, kept inside the list.
+  if (!Number.isInteger(target)) return clamp(Math.trunc(current) || 0, 0, count - 1);
+  return clamp(target, 0, count - 1);
 }
 
 /**
@@ -75,13 +86,28 @@ export function isEditableTarget(tagName: string, isContentEditable: boolean): b
 }
 
 /**
- * The part of a wheel event that moves the stack. Sideways scrolling always counts. Vertical
- * scrolling only counts when the page itself has nothing to scroll, so it never blocks the page.
- * Positive means toward the next card.
+ * Whether a wheel event is mostly vertical. This is the one place the axis is chosen, from the raw
+ * numbers, and only that axis is counted afterwards. In lines or pages every axis with any
+ * movement would count as a full step, so choosing again after that could pick the other axis.
+ * A tie counts as sideways.
  */
-export function wheelDelta(deltaX: number, deltaY: number, pageScrolls: boolean): number {
-  if (Math.abs(deltaX) >= Math.abs(deltaY)) return deltaX;
-  return pageScrolls ? 0 : deltaY;
+export function isVerticalWheel(deltaX: number, deltaY: number): boolean {
+  return Math.abs(deltaY) > Math.abs(deltaX);
+}
+
+/**
+ * The part of a wheel event that moves the stack, in pixels. Sideways scrolling always counts.
+ * Vertical scrolling only counts when the page itself has nothing to scroll, so it never blocks
+ * the page. Positive means toward the next card.
+ */
+export function wheelDelta(
+  deltaX: number,
+  deltaY: number,
+  deltaMode: number,
+  pageScrolls: boolean,
+): number {
+  if (!isVerticalWheel(deltaX, deltaY)) return wheelAmount(deltaX, deltaMode);
+  return pageScrolls ? 0 : wheelAmount(deltaY, deltaMode);
 }
 
 export const WHEEL_THRESHOLD = 60;

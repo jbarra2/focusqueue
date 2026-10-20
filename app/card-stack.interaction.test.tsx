@@ -1,9 +1,10 @@
 // @vitest-environment happy-dom
-import { act, type ComponentProps } from "react";
+import { act, StrictMode, type ComponentProps } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Group, Task } from "@/lib/task";
 import { CardStack } from "./card-stack";
+import { WHEEL_IDLE_MS } from "./use-stack-input";
 
 // These tests run the component in a simulated page, so effects, key and wheel listeners, and
 // focus all work. The markup-only tests are in card-stack.test.tsx.
@@ -759,5 +760,215 @@ describe("the stack in a page", () => {
       expect(press("ArrowRight").defaultPrevented).toBe(true);
       expect(focusCardName()).toBe("Task b");
     });
+  });
+});
+
+describe("the wheel's idle time", () => {
+  // Small scrolls add up toward a step, but only while they keep coming. After WHEEL_IDLE_MS
+  // without one, what had built up is dropped.
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("keeps what has built up while the scrolls keep coming", () => {
+    show([A, B, C]);
+    wheel({ deltaX: 40 });
+    vi.advanceTimersByTime(WHEEL_IDLE_MS - 1);
+    wheel({ deltaX: 40 });
+    expect(focusCardName()).toBe("Task b");
+  });
+
+  it("drops what has built up once the idle time has passed, and counts again from nothing", () => {
+    show([A, B, C]);
+    wheel({ deltaX: 40 });
+    vi.advanceTimersByTime(WHEEL_IDLE_MS);
+    wheel({ deltaX: 40 });
+    expect(focusCardName()).toBe("Task a");
+    wheel({ deltaX: 40 });
+    expect(focusCardName()).toBe("Task b");
+  });
+});
+
+// Wraps the page's own ResizeObserver, to see how many are made, which are still watching, and
+// what each one watches. The caller unstubs it with vi.unstubAllGlobals().
+function trackObservers() {
+  const Real = globalThis.ResizeObserver;
+  const all: Tracked[] = [];
+  class Tracked extends Real {
+    live = true;
+    targets = new Set<Element>();
+    constructor(readonly callback: ResizeObserverCallback) {
+      super(callback);
+      all.push(this);
+    }
+    observe(target: Element, options?: ResizeObserverOptions) {
+      this.targets.add(target);
+      super.observe(target, options);
+    }
+    unobserve(target: Element) {
+      this.targets.delete(target);
+      super.unobserve(target);
+    }
+    disconnect() {
+      this.live = false;
+      this.targets.clear();
+      super.disconnect();
+    }
+  }
+  vi.stubGlobal("ResizeObserver", Tracked);
+  return {
+    made: () => all.length,
+    live: () => all.filter((observer) => observer.live).length,
+    watched: () => all.filter((observer) => observer.live).flatMap((o) => [...o.targets]),
+    /** Reports a resize of the element to the observer that watches it, as a browser would. */
+    resized: (element: Element) => {
+      const watcher = all.find((observer) => observer.live && observer.targets.has(element));
+      if (!watcher) throw new Error("No observer is watching that element.");
+      act(() => {
+        watcher.callback([{ target: element } as ResizeObserverEntry], watcher);
+      });
+    },
+  };
+}
+
+/** Makes an element report that its content is taller than its box, or not. */
+function setOverflow(element: Element, overflowing: boolean) {
+  Object.defineProperty(element, "scrollHeight", {
+    configurable: true,
+    value: overflowing ? 400 : 50,
+  });
+  Object.defineProperty(element, "clientHeight", { configurable: true, value: 100 });
+}
+
+describe("the size observers", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("makes one for the description box and one for the focus card, however often the focus moves", () => {
+    const observers = trackObservers();
+    show([A, B, C, task("d")]);
+    expect(observers.made()).toBe(2);
+    press("ArrowRight");
+    press("ArrowRight");
+    click(control("Next"));
+    click(stacked("Task a"));
+    expect(focusCardName()).toBe("Task a");
+    expect(observers.made()).toBe(2);
+    expect(observers.live()).toBe(2);
+  });
+
+  it("measures again when the browser says the description box was resized", () => {
+    const observers = trackObservers();
+    show([task("a", { description: "line\n".repeat(50) })]);
+    const box = container.querySelector<HTMLElement>(".info-description")!;
+    expect(box.hasAttribute("tabindex")).toBe(false);
+
+    setOverflow(box, true);
+    observers.resized(box);
+    expect(box.getAttribute("tabindex")).toBe("0");
+    expect(box.getAttribute("role")).toBe("region");
+
+    setOverflow(box, false);
+    observers.resized(box);
+    expect(box.hasAttribute("tabindex")).toBe(false);
+  });
+
+  it("measures again when the browser says the focus card was resized", () => {
+    const observers = trackObservers();
+    show([A, B]);
+    const card = container.querySelector<HTMLElement>(".name-card")!;
+    expect(card.getAttribute("tabindex")).toBe("-1");
+
+    setOverflow(card, true);
+    observers.resized(card);
+    expect(card.getAttribute("tabindex")).toBe("0");
+
+    setOverflow(card, false);
+    observers.resized(card);
+    expect(card.getAttribute("tabindex")).toBe("-1");
+  });
+
+  it("watches only the description box and the focus card it is on now", () => {
+    const observers = trackObservers();
+    show([A, B, C, task("d")]);
+    press("ArrowRight");
+    click(control("Next"));
+    const watched = observers.watched();
+    expect(watched).toHaveLength(2);
+    expect(watched).toContain(container.querySelector(".info-description"));
+    expect(watched).toContain(container.querySelector(".name-card"));
+    expect(watched.every((element) => element.isConnected)).toBe(true);
+  });
+});
+
+describe("the stack under StrictMode", () => {
+  // In development React runs every effect, then undoes it, then runs it again, so a listener or
+  // an observer that is not cleaned up properly shows twice. The page must act as if it ran once.
+  function showStrict(tasks: Task[]) {
+    act(() => {
+      root.render(
+        <StrictMode>
+          <CardStack
+            tasks={tasks}
+            groups={[]}
+            today={today}
+            doNowId={tasks[0]?.id ?? null}
+            label="Up next"
+            emptyMessage="No open tasks."
+          />
+        </StrictMode>,
+      );
+    });
+  }
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("opens on the first task, with the info card and the focus card matching", () => {
+    showStrict([A, B, C]);
+    expect(status()).toBe("1 of 3");
+    expect(focusCardName()).toBe("Task a");
+    expect(infoCardName()).toBe("Task a");
+  });
+
+  it("moves one card for one key press, so the key listener is attached once", () => {
+    showStrict([A, B, C, task("d")]);
+    press("ArrowRight");
+    expect(status()).toBe("2 of 4");
+  });
+
+  it("moves one card for one wheel flick, so the wheel listener is attached once", () => {
+    showStrict([A, B, C, task("d")]);
+    wheel({ deltaX: 100 });
+    expect(status()).toBe("2 of 4");
+  });
+
+  it("puts keyboard focus on the new focus card after a click, and not twice", () => {
+    showStrict([A, B, C]);
+    click(stacked("Task c"));
+    expect(focusCardName()).toBe("Task c");
+    expect(document.activeElement).toBe(container.querySelector(".name-card"));
+  });
+
+  it("keeps the focus on its task when the list refreshes", () => {
+    showStrict([A, B, C]);
+    click(stacked("Task b"));
+    showStrict([task("new"), A, B, C]);
+    expect(focusCardName()).toBe("Task b");
+  });
+
+  it("leaves one size observer for each place that measures, with none left over", () => {
+    // Each is made, undone and made again, so four are made and the first two are disconnected.
+    const observers = trackObservers();
+    showStrict([A, B, C]);
+    expect(observers.made()).toBe(4);
+    expect(observers.live()).toBe(2);
+    expect(observers.watched()).toHaveLength(2);
   });
 });

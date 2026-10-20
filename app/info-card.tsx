@@ -18,7 +18,8 @@ export function InfoCard({ task, slot, today }: Props) {
   const descriptionScrolls = useOverflows(descriptionRef, `${task.id}\n${task.description}`);
 
   return (
-    <aside className="card info-card" data-slot={slot} aria-labelledby="info-title">
+    // A labelled group, not an aside: a complementary landmark inside main is flagged by axe.
+    <div className="card info-card" role="group" data-slot={slot} aria-labelledby="info-title">
       <h2 id="info-title">Details</h2>
       <p className="task-name">{task.name}</p>
       <dl>
@@ -51,6 +52,6 @@ export function InfoCard({ task, slot, today }: Props) {
           </div>
         </dd>
       </dl>
-    </aside>
+    </div>
   );
 }

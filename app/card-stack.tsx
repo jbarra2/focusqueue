@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
-import { slotFor } from "@/lib/group";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { slotLookup } from "@/lib/group";
 import { focusAfter, indexOfTask, STACK_REACH, type Move } from "@/lib/stack";
 import type { Group, Task } from "@/lib/task";
 import { InfoCard } from "./info-card";
@@ -57,6 +57,9 @@ export function CardStack({
   // list does not tear them down and lose a wheel gesture in progress.
   const tasksRef = useRef(tasks);
 
+  // The group names are folded once for the list, not once for every card on every render.
+  const slotOf = useMemo(() => slotLookup(groups), [groups]);
+
   const stackRef = useRef<HTMLDivElement>(null);
   const focusRef = useRef<HTMLElement>(null);
   const userMoved = useRef(false);
@@ -106,7 +109,7 @@ export function CardStack({
     return <p className="empty">{emptyMessage}</p>;
   }
 
-  const lookup = (task: Task) => slotFor(groups, task.group) ?? undefined;
+  const lookup = (task: Task) => slotOf(task.group) ?? undefined;
   const focused = tasks[index];
 
   return (

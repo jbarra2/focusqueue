@@ -2,8 +2,8 @@ import { useEffect, type RefObject } from "react";
 import {
   accumulateWheel,
   isEditableTarget,
+  isVerticalWheel,
   stepFromKey,
-  wheelAmount,
   wheelDelta,
   type Move,
 } from "@/lib/stack";
@@ -13,7 +13,7 @@ import { scrollsItself } from "./use-measure";
 // After a card change, further wheel input is ignored briefly, so one flick moves one card.
 const WHEEL_COOLDOWN_MS = 110;
 // Wheel input that stops for this long no longer counts toward the next card.
-const WHEEL_IDLE_MS = 150;
+export const WHEEL_IDLE_MS = 150;
 
 type Input = {
   stackRef: RefObject<HTMLDivElement | null>;
@@ -78,19 +78,13 @@ export function useStackInput({ stackRef, tasksRef, lastIndex, go, hasStack }: I
     const onWheel = (event: WheelEvent) => {
       // Ctrl with the wheel, and a pinch on a trackpad, zoom the page. Leave that alone.
       if (event.ctrlKey || event.metaKey) return;
-      // The axis is chosen once, from the raw numbers, and only that axis is counted. In lines
-      // or pages every axis with any movement would count as a full step, so choosing again
-      // after that could pick the other axis.
-      const vertical = Math.abs(event.deltaY) > Math.abs(event.deltaX);
+      // Which way the wheel moves is decided in one place, which wheelDelta uses too.
+      const vertical = isVerticalWheel(event.deltaX, event.deltaY);
       // A box with more text than fits scrolls itself, so leave the wheel to it.
       if (vertical && event.target instanceof Element && scrollsItself(event.target)) return;
       // Only a vertical wheel needs to know whether the page scrolls, which forces a layout.
       const pageScrolls = vertical && document.documentElement.scrollHeight > window.innerHeight;
-      const delta = wheelDelta(
-        vertical ? 0 : wheelAmount(event.deltaX, event.deltaMode),
-        vertical ? wheelAmount(event.deltaY, event.deltaMode) : 0,
-        pageScrolls,
-      );
+      const delta = wheelDelta(event.deltaX, event.deltaY, event.deltaMode, pageScrolls);
       if (delta === 0) return;
       // At either end the stack cannot move, so the browser keeps the event, for example a
       // sideways swipe that goes back a page.

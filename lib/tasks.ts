@@ -1,5 +1,6 @@
 import "server-only";
 import type { Database } from "better-sqlite3";
+import { firstFreeColor } from "./group";
 import type { Difficulty, Group, Task } from "./task";
 import {
   COLOR_TAKEN_MESSAGE,
@@ -10,7 +11,6 @@ import {
   taskInputSchema,
   type TaskInput,
 } from "./task-schema";
-import { GROUP_COLOR_COUNT } from "./theme";
 
 // Every write parses its input with Zod first, then runs as one transaction, so a failed write
 // leaves the database as it was. SQL never contains input. Values go through ? placeholders.
@@ -70,14 +70,11 @@ function resolveGroup(db: Database, name: string, color: number | undefined): st
   const taken = new Set(
     (db.prepare(`SELECT color FROM task_group`).all() as { color: number }[]).map((r) => r.color),
   );
-  if (taken.size >= GROUP_COLOR_COUNT) throw new GroupError(GROUP_LIMIT_MESSAGE);
+  const free = firstFreeColor(taken);
+  if (free === null) throw new GroupError(GROUP_LIMIT_MESSAGE);
   if (color !== undefined && taken.has(color)) throw new GroupError(COLOR_TAKEN_MESSAGE);
 
-  let chosen = color;
-  for (let slot = 1; chosen === undefined; slot += 1) {
-    if (!taken.has(slot)) chosen = slot;
-  }
-  db.prepare(`INSERT INTO task_group (name, color) VALUES (?, ?)`).run(name, chosen);
+  db.prepare(`INSERT INTO task_group (name, color) VALUES (?, ?)`).run(name, color ?? free);
   return name;
 }
 

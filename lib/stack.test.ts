@@ -5,6 +5,7 @@ import {
   focusAfter,
   indexOfTask,
   isEditableTarget,
+  isVerticalWheel,
   moveIndex,
   stepFromKey,
   WHEEL_THRESHOLD,
@@ -76,14 +77,40 @@ describe("isEditableTarget", () => {
 });
 
 describe("wheel", () => {
+  describe("isVerticalWheel", () => {
+    it("is true only when the wheel moves more up and down than sideways", () => {
+      expect(isVerticalWheel(2, 50)).toBe(true);
+      expect(isVerticalWheel(-2, -50)).toBe(true);
+      expect(isVerticalWheel(40, 5)).toBe(false);
+      expect(isVerticalWheel(-40, 5)).toBe(false);
+    });
+
+    it("counts a tie, and no movement at all, as sideways", () => {
+      expect(isVerticalWheel(30, 30)).toBe(false);
+      expect(isVerticalWheel(-30, 30)).toBe(false);
+      expect(isVerticalWheel(0, 0)).toBe(false);
+    });
+  });
+
   it("uses sideways scrolling whether or not the page scrolls", () => {
-    expect(wheelDelta(40, 5, true)).toBe(40);
-    expect(wheelDelta(-40, 5, false)).toBe(-40);
+    expect(wheelDelta(40, 5, 0, true)).toBe(40);
+    expect(wheelDelta(-40, 5, 0, false)).toBe(-40);
   });
 
   it("uses vertical scrolling only when the page does not scroll", () => {
-    expect(wheelDelta(2, 50, false)).toBe(50);
-    expect(wheelDelta(2, 50, true)).toBe(0);
+    expect(wheelDelta(2, 50, 0, false)).toBe(50);
+    expect(wheelDelta(2, 50, 0, true)).toBe(0);
+  });
+
+  it("takes the amount of the one axis it chose, in lines and pages too", () => {
+    // A notch counted in lines is one full step, but only along the axis the wheel mostly moves
+    // on. The other axis may have any small movement and is not counted with it.
+    expect(wheelDelta(0, 3, 1, false)).toBe(WHEEL_THRESHOLD);
+    expect(wheelDelta(0, -3, 2, false)).toBe(-WHEEL_THRESHOLD);
+    expect(wheelDelta(1, 3, 1, false)).toBe(WHEEL_THRESHOLD);
+    expect(wheelDelta(3, 1, 1, true)).toBe(WHEEL_THRESHOLD);
+    expect(wheelDelta(0, 3, 1, true)).toBe(0);
+    expect(wheelDelta(0, 0, 1, false)).toBe(0);
   });
 
   it("moves one card per threshold, in either direction", () => {

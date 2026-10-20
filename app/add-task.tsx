@@ -9,11 +9,10 @@ import {
   type FormEvent,
   type TransitionStartFunction,
 } from "react";
-import { findGroup } from "@/lib/group";
+import { findGroup, firstFreeColor } from "@/lib/group";
 import { DIFFICULTIES, DIFFICULTY_LABEL, type Group } from "@/lib/task";
 import type { AddTaskResult } from "@/lib/task-actions";
 import { GROUP_LIMIT_MESSAGE } from "@/lib/task-schema";
-import { GROUP_COLOR_COUNT } from "@/lib/theme";
 import { addTaskAction } from "./actions";
 import { ColorGrid, colorName } from "./color-grid";
 
@@ -58,10 +57,7 @@ function AddTaskForm({ groups, today, pending, startTransition, onCancel, onAdde
   const existing = typedGroup === "" ? undefined : findGroup(groups, typedGroup);
   const isNew = typedGroup !== "" && existing === undefined;
   const takenColors = new Set(groups.map((g) => g.color));
-  let firstFree: number | null = null;
-  for (let slot = 1; slot <= GROUP_COLOR_COUNT && firstFree === null; slot += 1) {
-    if (!takenColors.has(slot)) firstFree = slot;
-  }
+  const firstFree = firstFreeColor(takenColors);
   // A color the person picked that has been taken since is not kept, the first free one is used.
   const chosenColor = picked !== null && !takenColors.has(picked) ? picked : firstFree;
   const limitReached = isNew && firstFree === null;

@@ -1156,3 +1156,89 @@ planned and reviewed in Cursor.
   repeated inside a media query, and a slot's variable overridden later. 8 of 8 were
   caught.
 - `npm run verify` (569 tests, 2 skipped on Windows) and `npm run build` pass.
+
+## 22. Fix landmarks and small leftovers from the reviews (Claude Code)
+
+**Asked:**
+
+> Add works. Continue
+
+**What came back / what changed:**
+
+- Your first line answers the open question: Add works in your own browser. This
+  stop is the cleanup list from the earlier reviews. The page looks and behaves the
+  same, with one deliberate change: the add action now refuses a file sent in any
+  of its fields (below).
+- Landmarks. The details card was an `aside` inside `main`, which a screen reader
+  tool flags as a second sidebar. It is now a group named Details. The header was
+  also inside `main`, so it was not the page's banner. It sits outside `main` now.
+  Both the header and `main` live in one full-height column that the layout draws
+  once, so a page added later gets the same frame, and the error page no longer needs
+  its own. The global `h2` rule had looked dead, but its font size still styled two
+  headings, the focus card's and the Add dialog's title. They have their own rule now,
+  and the margin that nothing used is gone.
+- Small leftovers. Moving the focus (`moveIndex`) reads as a `clamp` and a short
+  `switch` instead of a four-level condition. Which way the wheel moves is decided in
+  one place, `isVerticalWheel`, and `wheelDelta` takes the raw numbers. The size
+  watcher (`useOverflows`) keeps one observer for as long as the card lives and points
+  it at the current element, where it used to build a new one on every move. The group
+  colors are looked up through a map made once for the list (`slotLookup`), not by
+  scanning and lower-casing every name for every card on every draw.
+- The three review points I had left on purpose in the Add stop are closed. A file
+  sent in any of the six fields (a second value of a repeated field counts too) is
+  refused before the database is opened, with the generic sentence. Before, a file in
+  the group field meant no group, and a file in the description meant an empty one.
+  That can only come from a hand-made request, so the server's log gets one line
+  that names the field and never what was sent. The second check of the input inside
+  `createTask` stays, and its comment now says why. The first free color is worked out
+  by one function, `firstFreeColor`, which the Add dialog and the database code share.
+- New tests cover what was only said in comments before. React's development mode
+  runs every effect twice, so the stack, the header and the midnight refresh now have
+  tests under `StrictMode`: one key press moves one card, one wheel flick moves one
+  card, one search is sent, and no timer, listener or observer is left over. None of
+  them found a bug. The wheel's idle time (`WHEEL_IDLE_MS`) has a test on both sides
+  of its edge. The date and queue helpers run in UTC, Auckland (13 hours ahead, with
+  23 and 25 hour days) and Kolkata (a half hour offset), including a task completed
+  on a Sunday in one zone and a Monday in another. That is groundwork for the stop that
+  clears old completed tasks by the day they were completed.
+- I checked the page in a real browser. I built the code before this stop and the new
+  code in a scratch copy with made-up tasks, and drove headless Chrome through seven
+  states at 1280 and 520 px wide: first load, the right arrow twice, End, the Completed
+  view, the Add dialog, and the dialog with a new and with an existing group. All 14
+  screenshots and all 14 records of which element had keyboard focus are identical to
+  the byte. The page markup is identical once the old markup is rewritten the way this
+  stop means to change it (the details card as a group, the header outside `main`, in
+  the new frame). Two differences are only bookkeeping: React's generated ids, which
+  depend on where a component sits in the tree, and one empty comment marker from
+  Next, which now sits inside the frame. The browser also confirmed the new
+  landmarks: no `aside`, one header that is not inside `main`, and the details card as
+  a group. I ran it a second time after the review fixes, on the final code.
+- `/code-review` raised 12 points. I fixed nine. The size watcher's new callback had
+  no test, because the test browser's observer does nothing, so the tests now fire a
+  resize by hand. One time zone test promised to cross the United States clock changes
+  in zones that do not have them, so it now crosses Auckland's change in April 2026
+  instead (the United States ones are in `lib/date.dst.test.ts`). The list of fields
+  that may not hold a file was kept in two places and a test, so the test now takes
+  its fields from the task schema. The forged requests were not logged. `slotFor` and
+  `slotLookup` were two copies of one rule, so `slotFor` now calls the other. The
+  page frame was written out in two places. A test comment named a region, which does
+  not belong in a public repository. `firstFreeColor` copied a set it was already
+  given. And an exported timing constant had no user. I left two on purpose. The
+  review wanted this split into refactors and behavior changes, but one commit is the
+  plan you approved. The new time zone test file repeats a little of
+  `lib/date.dst.test.ts`, which stays as it is because each test file sets its own
+  zone. The twelfth point was that this entry did not exist yet. `AGENTS.md` is not
+  part of this piece and is not staged.
+- The tests went from 569 to 659. I undid the work one piece at a time to check that
+  a test fails: 23 checks in all, covering 20 different changes, three of which were
+  run again after the review fixes. They were the clamp letting a move go past the end, a wheel tie
+  counted as vertical, the idle time ten times too long and half as long, the first
+  free color starting at 2, the lookup not lower-casing, a field left out of the file
+  check, only the first value of a field checked, a new size observer on every move,
+  the day read in UTC, days added as 24 hours, the group limit check removed, the
+  group role removed, the resize callback never setting anything and comparing the
+  wrong way, the layout without its frame, the log line missing and the log line
+  carrying the file's name, and `slotFor` giving nothing. All were caught. One got
+  through at first only because my change did not really leak anything, so I redid it
+  with a realistic leak and it was caught.
+- `npm run verify` (659 tests, 2 skipped on Windows) and `npm run build` pass.

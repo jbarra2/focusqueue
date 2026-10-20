@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { act, startTransition } from "react";
+import { act, startTransition, StrictMode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_FILTERS, filterHref, parseSearchParams, type Filters } from "@/lib/filter";
@@ -1159,5 +1159,58 @@ describe("Add a task from the header", () => {
     expect(sent("push", 1)).toBe("/?task=new-id");
     await server.answer("/?task=new-id");
     expect(field("Difficulty").value).toBe("all");
+  });
+});
+
+describe("the header under StrictMode", () => {
+  // In development React runs every effect, undoes it and runs it again, the way `next dev` does.
+  // A listener or a timer that is not cleaned up would act twice. The header must act as if once.
+  function showStrict(filters: Filters = DEFAULT_FILTERS, count = 3) {
+    act(() => {
+      window.history.replaceState(NEXT_ENTRY_STATE, "", filterHref(filters));
+      root.render(
+        <StrictMode>
+          <StackFilters filters={filters} groups={groups} today={TODAY} count={count} />
+        </StrictMode>,
+      );
+    });
+  }
+
+  it("shows the filters it was given", () => {
+    showStrict({ ...DEFAULT_FILTERS, view: "later", difficulty: "low", q: "plan" });
+    expect(link("Later").getAttribute("aria-current")).toBe("page");
+    expect(field("Difficulty").value).toBe("low");
+    expect(search().value).toBe("plan");
+  });
+
+  it("sends one navigation for one menu choice", () => {
+    showStrict();
+    choose("Difficulty", "high");
+    expect(router.push).toHaveBeenCalledTimes(1);
+    expect(sent("push")).toBe("/?difficulty=high");
+  });
+
+  it("sends one search, once the typing has paused, and none before", () => {
+    showStrict();
+    type("plan");
+    wait(249);
+    expect(router.replace).not.toHaveBeenCalled();
+    wait(1);
+    expect(router.replace).toHaveBeenCalledTimes(1);
+    expect(sent("replace")).toBe("/?q=plan");
+  });
+
+  it("follows Back with the search box, as it does without StrictMode", () => {
+    showStrict({ ...DEFAULT_FILTERS, q: "plan" });
+    back("/");
+    expect(search().value).toBe("");
+    expect(router.replace).not.toHaveBeenCalled();
+  });
+
+  it("opens the Add dialog once, with the name field in focus", () => {
+    showStrict();
+    act(() => container.querySelector<HTMLButtonElement>("button.add-task")!.click());
+    expect(container.querySelectorAll("dialog[open]")).toHaveLength(1);
+    expect(document.activeElement).toBe(container.querySelector("dialog [name=name]"));
   });
 });

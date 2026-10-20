@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { findGroup, slotFor } from "./group";
+import { findGroup, firstFreeColor, slotFor, slotLookup } from "./group";
 
 describe("findGroup", () => {
   const groups = [
@@ -57,5 +57,71 @@ describe("slotFor", () => {
     for (const color of [0, 9, -1, 1.5, Number.NaN]) {
       expect(slotFor([{ name: "Odd", color }], "Odd")).toBeNull();
     }
+  });
+});
+
+describe("slotLookup", () => {
+  // The database never holds two groups whose names differ only in English letter case, nor a slot
+  // outside 1 to 8. They are here so the rules are pinned down for any list.
+  const groups = [
+    { name: "Home", color: 3 },
+    { name: "Errands", color: 8 },
+    { name: "Éclair", color: 2 },
+    { name: "éclair", color: 6 },
+    { name: "Odd", color: 9 },
+    { name: "Same", color: 4 },
+    { name: "SAME", color: 5 },
+    { name: "First", color: 0 },
+    { name: "FIRST", color: 7 },
+  ];
+
+  it("finds the slot of a group without case, and folds only English letters", () => {
+    const lookup = slotLookup(groups);
+    expect(lookup("hOmE")).toBe(3);
+    expect(lookup("ERRANDS")).toBe(8);
+    expect(lookup("éclair")).toBe(6);
+    expect(lookup("ÉCLAIR")).toBe(2);
+  });
+
+  it("uses the first group of a name, even when its slot is not valid", () => {
+    const lookup = slotLookup(groups);
+    expect(lookup("same")).toBe(4);
+    expect(lookup("SAME")).toBe(4);
+    expect(lookup("first")).toBeNull();
+  });
+
+  it("is null for no group, an unknown group, a slot outside 1 to 8, and an empty list", () => {
+    const lookup = slotLookup(groups);
+    expect(lookup(null)).toBeNull();
+    expect(lookup("Nowhere")).toBeNull();
+    expect(lookup("Odd")).toBeNull();
+    expect(slotLookup([])("Home")).toBeNull();
+  });
+});
+
+describe("firstFreeColor", () => {
+  it("is 1 when no color is taken", () => {
+    expect(firstFreeColor([])).toBe(1);
+  });
+
+  it("is the lowest slot that is free, wherever the gap is", () => {
+    expect(firstFreeColor([1, 2])).toBe(3);
+    expect(firstFreeColor([1, 3])).toBe(2);
+    expect(firstFreeColor([2, 3])).toBe(1);
+    expect(firstFreeColor([1, 2, 3, 4, 5, 6, 7])).toBe(8);
+  });
+
+  it("is null when all 8 colors are taken", () => {
+    expect(firstFreeColor([1, 2, 3, 4, 5, 6, 7, 8])).toBeNull();
+  });
+
+  it("takes a set or a list, in any order, with repeats", () => {
+    expect(firstFreeColor(new Set([2, 1]))).toBe(3);
+    expect(firstFreeColor([3, 1, 3, 2])).toBe(4);
+  });
+
+  it("is not changed by a color outside the 8 slots", () => {
+    expect(firstFreeColor([0, 9, -1, 1.5])).toBe(1);
+    expect(firstFreeColor([1, 2, 3, 4, 5, 6, 7, 8, 9])).toBeNull();
   });
 });
