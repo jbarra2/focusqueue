@@ -1146,7 +1146,9 @@ describe("Add a task from the header", () => {
     expect(link("Later").getAttribute("aria-current")).toBe("page");
     expect(field("Group").value).toBe("g:Home");
     expect(container.querySelector("dialog")!.hasAttribute("open")).toBe(true);
-    expect(container.querySelector("dialog [role=alert]")!.textContent).toBe("Enter a name.");
+    expect(container.querySelector("dialog [role=alert]")!.textContent).toBe(
+      "Error: Enter a name.",
+    );
   });
 
   it("builds on the choices of a menu change that is still waiting for the server", async () => {

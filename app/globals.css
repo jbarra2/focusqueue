@@ -1,22 +1,63 @@
 /* One block per theme. A theme defines its base colors and all 8 group slots. A group stores
    only a slot number, so a chosen color stays on theme when the theme changes. The base colors
    are never group colors. The default theme is also set on :root, so a page without data-theme
-   still has colors. A theme's attribute selector is more specific and wins. */
+   still has colors. A theme's attribute selector is more specific and wins.
+
+   Every color lives in this block. Nothing below writes a color of its own, so a theme changes the
+   whole look by changing this block, and lib/theme.test.ts checks that and the contrast of the
+   pairs the page uses. The radius, spacing and control height are here too, for the buttons, the
+   fields, the choices, the cards and the dialog. The rest of the layout, such as the header and
+   the stack, keeps its own sizes. They are not colors, and no test looks at them. */
 :root,
 :root[data-theme="warm"] {
-  --color-bg: #fafaf7;
-  --color-text: #1c1c1a;
-  --color-muted: #5c5c57;
-  --color-border: #d6d6cf;
-  --color-accent: #1d4ed8;
-  --color-danger: #b42318;
+  /* The page and its text. */
+  --color-bg: #f6efe4;
+  --color-text: #2b2118;
+  --color-muted: #6b5a4b;
+
+  /* The edge of every control and card. It is at least 3:1 on the page and on a plain card, so a
+     control can be found without relying on a fill. */
+  --color-edge: #8c7a68;
+
+  /* The accent: the primary button, the current view, the title, links and the focus ring. It is
+     never a group color. Text on a filled accent is --color-on-fill. */
+  --color-accent: #a44a2f;
+  --color-accent-strong: #8a3d26;
+  --color-on-fill: #ffffff;
+  --color-danger: #9b1c1c;
+  --color-done: #3e6b4f;
+
+  /* A slightly darker cream: the hover of a quiet button, and the box a notice sits in. */
+  --color-wash: #efe3d3;
 
   /* A card with no group. */
-  --card-bg: #ffffff;
-  --card-ink: #1c1c1a;
+  --card-bg: #fffcf7;
+  --card-ink: #2b2118;
 
   /* A light wash behind the description box, so the box reads as a text area on any card. */
   --card-well: rgb(255 255 255 / 0.35);
+
+  /* Soft shadows, in a warm brown. The focus card and the dialog sit higher than the rest. */
+  --shadow-card: 0 1px 2px rgb(60 40 20 / 0.14), 0 3px 8px rgb(60 40 20 / 0.08);
+  --shadow-raised: 0 2px 4px rgb(60 40 20 / 0.16), 0 10px 24px rgb(60 40 20 / 0.2);
+  --shadow-dialog: 0 12px 40px rgb(40 25 10 / 0.4);
+
+  /* The dim behind the dialog, and the stripes that mark a taken color. */
+  --backdrop: rgb(30 20 10 / 0.5);
+  --stripe: rgb(42 33 24 / 0.3);
+
+  --radius-s: 0.375rem;
+  --radius-m: 0.5rem;
+  --radius-l: 0.875rem;
+  --radius-pill: 999px;
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+
+  /* The height of a button, a field and a choice, so a row of them lines up. */
+  --control-h: 2.5rem;
 
   /* Group slots 1 to 8: Terracotta, Mustard, Sage, Teal, Sky, Lavender, Rose, Sand. */
   --group-1: #e8b4a0;
@@ -89,18 +130,63 @@ main > button {
 
 h1 {
   margin: 0 0 1.5rem;
+  color: var(--color-accent);
   font-size: 1.5rem;
+  letter-spacing: -0.01em;
 }
 
 /* The two headings that are not styled by their card. The others set their own size and margin. */
-.name-card h2,
-.add-dialog h2 {
-  font-size: 1.125rem;
+.name-card h2 {
+  font-size: 1.375rem;
+  line-height: 1.3;
 }
 
-button {
+.add-dialog h2 {
+  font-size: 1.25rem;
+}
+
+/* A plain button is the quiet kind: an outline on the card's fill. A card that is a button, the
+   stacked card, is not one, so it is left out. :where gives these rules no specificity, so a class
+   on a button, such as .button-primary below, wins without a fight. */
+:where(button:not(.card)) {
+  min-height: var(--control-h);
+  padding: 0 var(--space-4);
+  border: 1px solid var(--color-edge);
+  border-radius: var(--radius-pill);
+  background: var(--card-bg);
+  color: var(--color-text);
   font: inherit;
-  padding: 0.5rem 1rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* Not when the button cannot be pressed, whichever way it says so. */
+:where(button:not(.card, :disabled, [aria-disabled="true"]):hover) {
+  background: var(--color-wash);
+}
+
+:where(button:not(.card):disabled) {
+  color: var(--color-muted);
+  cursor: default;
+}
+
+/* The one button on a screen that does the main thing. A disabled one stays readable, which is
+   what "Adding..." needs. */
+.button-primary {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  color: var(--color-on-fill);
+}
+
+.button-primary:hover:not(:disabled) {
+  border-color: var(--color-accent-strong);
+  background: var(--color-accent-strong);
+}
+
+.button-primary:disabled {
+  border-color: var(--color-muted);
+  background: var(--color-muted);
+  color: var(--color-on-fill);
 }
 
 .task-name {
@@ -122,6 +208,7 @@ button {
 .empty {
   margin: 0 0 1rem;
   color: var(--color-muted);
+  font-size: 1.125rem;
 }
 
 /* The header: the title at the left, and the two filter rows centered on the screen, a little
@@ -179,27 +266,36 @@ button {
   gap: 0.5rem 1.75rem;
 }
 
-/* The current view is told apart by a thicker border, a filled background, and an underline, so
-   it does not depend on color alone. The extra border width is a shadow, so nothing shifts. */
+/* The current view is filled where the others are outlines, and underlined, so it still shows
+   where a mode such as Windows high contrast replaces the colors. All of them have the same weight,
+   so the row does not change width when the view changes. */
 .view-link {
-  padding: 0.25rem 0.75rem;
-  border: 1px solid var(--color-muted);
-  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.25rem;
+  padding: 0 var(--space-4);
+  border: 1px solid var(--color-edge);
+  border-radius: var(--radius-pill);
   color: var(--color-text);
+  font-weight: 600;
   text-decoration: none;
 }
 
-/* A darker border, because a white fill is almost the page color and would show nothing. */
 .view-link:hover {
-  border-color: var(--color-text);
+  background: var(--color-wash);
 }
 
 .view-link[aria-current="page"] {
   border-color: var(--color-accent);
-  box-shadow: inset 0 0 0 1px var(--color-accent);
-  background: var(--card-bg);
+  background: var(--color-accent);
+  color: var(--color-on-fill);
   text-decoration: underline;
   text-underline-offset: 0.25em;
+}
+
+.view-link[aria-current="page"]:hover {
+  border-color: var(--color-accent-strong);
+  background: var(--color-accent-strong);
 }
 
 .controls {
@@ -220,9 +316,14 @@ button {
 
 .field select,
 .field input {
+  min-height: var(--control-h);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-edge);
+  border-radius: var(--radius-s);
+  background: var(--card-bg);
+  color: var(--color-text);
   font: inherit;
   font-weight: 400;
-  padding: 0.375rem 0.5rem;
 }
 
 .field input[type="search"] {
@@ -231,9 +332,13 @@ button {
 }
 
 /* It stays in place when there is nothing to clear, so the row does not jump and focus is not
-   lost. It then reads as inactive, in the muted color and with no underline. */
+   lost. It then reads as inactive, in the muted color and with no underline. It is as tall as the
+   fields next to it, so its text lines up with theirs. */
 .clear-filters {
-  padding-block: 0.375rem;
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--control-h);
+  padding-inline: var(--space-1);
   color: var(--color-accent);
 }
 
@@ -277,8 +382,10 @@ button {
   list-style: none;
   overflow: hidden;
   /* clip, not hidden: hidden can still be scrolled by focus, which would shift the whole stack
-     when a card that is partly outside the track is tabbed to. */
-  overflow: clip;
+     when a card that is partly outside the track is tabbed to. Only sideways: the cards are as
+     tall as the track, and a clip above and below would cut off their shadows. If a browser does
+     not know clip, it drops this line and keeps the one above. */
+  overflow: clip visible;
 }
 
 .slot {
@@ -323,20 +430,33 @@ button {
   margin: 0;
   padding: 1rem;
   overflow: auto;
-  border: 2px solid var(--color-border);
-  border-radius: 0.75rem;
+  border: 1px solid var(--color-edge);
+  border-radius: var(--radius-l);
   background: var(--card-bg);
+  box-shadow: var(--shadow-card);
   color: var(--card-ink);
   font: inherit;
   text-align: left;
 }
 
+/* The cards behind the focus card are quieter: the name, then smaller lines. */
 .stacked-card {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
   overflow: hidden;
+  font-size: 0.9375rem;
   cursor: pointer;
+}
+
+.stacked-card:hover {
+  box-shadow: var(--shadow-raised);
+}
+
+/* The pill is as wide as its text. In this column of lines it would stretch across the card, and
+   its far end would show behind the focus card. */
+.stacked-card .badge {
+  align-self: flex-start;
 }
 
 /* A card reached by keyboard comes in front of the other stacked cards, but stays behind the
@@ -354,14 +474,30 @@ button {
   outline-offset: -6px;
 }
 
-/* aria-disabled keeps the button focusable, so focus is not lost at the ends of the stack. */
+/* aria-disabled keeps the button focusable, so focus is not lost at the ends of the stack. It reads
+   as inactive, and the pointer over it changes nothing. */
 .stack-controls button[aria-disabled="true"] {
   color: var(--color-muted);
   cursor: default;
 }
 
+/* The focus card is raised above the rest: a stronger shadow and an accent edge. Its name has the
+   room that is left under the Do now or Done pill and sits in the middle of it. An auto margin
+   instead of centering, so a name too long for the card starts at the top and scrolls. */
 .name-card {
-  border-color: var(--color-accent);
+  display: flex;
+  flex-direction: column;
+  border: 2px solid var(--color-accent);
+  box-shadow: var(--shadow-raised);
+}
+
+.name-card .badge {
+  flex-shrink: 0;
+  align-self: flex-start;
+}
+
+.name-card .task-name {
+  margin-block: auto;
 }
 
 /* The info card does not scroll as a whole. Only the description does, in its own box, so the
@@ -381,10 +517,18 @@ button {
   flex-shrink: 0;
 }
 
+/* The labels are small capitals in the card's own ink. A muted gray would not read on every group
+   color, and the ink is already checked against each one. */
+.info-card h2,
+.info-card dt {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
 .info-card h2 {
   margin: 0 0 0.25rem;
-  font-size: 0.875rem;
-  font-weight: 600;
 }
 
 /* The full name is on the focus card, so a very long one is cut to two lines here. */
@@ -394,6 +538,8 @@ button {
   -webkit-line-clamp: 2;
   line-clamp: 2;
   overflow: hidden;
+  font-size: 1.125rem;
+  line-height: 1.3;
 }
 
 .info-card dl {
@@ -402,11 +548,6 @@ button {
   flex-direction: column;
   min-height: 0;
   margin: 0.5rem 0 0;
-}
-
-.info-card dt {
-  font-size: 0.875rem;
-  font-weight: 600;
 }
 
 /* A group name can be one long word, so values wrap anywhere instead of running out of the card. */
@@ -445,7 +586,7 @@ button {
   padding: 0.5rem;
   overflow-y: auto;
   border: 1px solid color-mix(in srgb, currentColor 40%, transparent);
-  border-radius: 0.5rem;
+  border-radius: var(--radius-m);
   background: var(--card-well);
 }
 
@@ -453,14 +594,23 @@ button {
   outline-offset: -3px;
 }
 
+/* The Do now pill. It is a fill with its own text color, so it reads on a plain card and on every
+   group color. */
 .badge {
   display: inline-block;
   margin: 0 0 0.25rem;
-  padding: 0 0.5rem;
-  border: 1px solid currentColor;
-  border-radius: 999px;
-  font-size: 0.8125rem;
-  font-weight: 600;
+  padding: 0 0.625rem;
+  border-radius: var(--radius-pill);
+  background: var(--color-accent);
+  color: var(--color-on-fill);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+
+/* A completed task has this where an open one may have Do now, never both. */
+.badge-done {
+  background: var(--color-done);
 }
 
 /* On a group card the overdue color may not contrast with the card, so the words and the
@@ -533,6 +683,7 @@ button {
 .stack-status {
   margin: 0;
   min-width: 5rem;
+  color: var(--color-muted);
   text-align: center;
 }
 
@@ -552,25 +703,59 @@ button {
 .add-dialog {
   width: min(32rem, calc(100vw - 2rem));
   max-height: calc(100dvh - 2rem);
-  padding: 1.25rem;
-  border: 1px solid var(--color-muted);
-  border-radius: 0.75rem;
+  padding: var(--space-5);
+  border: 1px solid var(--color-edge);
+  border-radius: var(--radius-l);
   background: var(--card-bg);
+  box-shadow: var(--shadow-dialog);
   color: var(--card-ink);
 }
 
+/* Open, the dialog is a column of three parts: the heading, the fields, and the footer with the
+   refusal and the buttons. When the window is shorter than the form, only the fields scroll, so the
+   heading and the buttons stay in view, and a refusal is never out of sight. Only while it is open:
+   a display on the dialog itself would show it closed. */
+.add-dialog[open] {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
 .add-dialog::backdrop {
-  background: rgb(0 0 0 / 0.45);
+  background: var(--backdrop);
 }
 
 .add-dialog h2 {
-  margin: 0 0 1rem;
+  margin: 0 0 var(--space-4);
 }
 
 .add-form {
   display: flex;
+  flex: 1;
   flex-direction: column;
-  gap: 0.875rem;
+  min-height: 0;
+}
+
+/* The fields. The scrolling cuts off anything outside the box, which would be the focus ring of a
+   field at its edge, so the box has room for it inside, and takes that room back from its margin. */
+.form-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-height: 0;
+  margin: calc(-1 * var(--space-2));
+  padding: var(--space-2);
+  overflow-y: auto;
+}
+
+.form-footer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-wash);
 }
 
 .form-field {
@@ -594,42 +779,99 @@ button {
 .form-field input[type="date"],
 .form-field textarea {
   width: 100%;
-  padding: 0.375rem 0.5rem;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-edge);
+  border-radius: var(--radius-s);
+  background: var(--card-bg);
+  color: var(--card-ink);
   font: inherit;
 }
 
+.form-field input[type="text"],
+.form-field input[type="date"] {
+  min-height: var(--control-h);
+}
+
 .form-field textarea {
+  padding-block: var(--space-2);
   resize: vertical;
 }
 
 .choices {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem 1.25rem;
+  gap: var(--space-2);
 }
 
+/* A choice is a pill with its radio button in it, as tall as a field. The one that is chosen has
+   an accent edge, a thicker one, and its radio button is filled, so it does not rest on color
+   alone. Its label keeps the same weight, so the pills do not change width when one is chosen. */
 .form-field .choice {
   display: flex;
   align-items: center;
-  gap: 0.375rem;
+  gap: var(--space-2);
+  min-height: var(--control-h);
+  padding: 0 var(--space-4);
+  border: 1px solid var(--color-edge);
+  border-radius: var(--radius-pill);
   font-size: 1rem;
   font-weight: 400;
+  cursor: pointer;
+}
+
+.choice input {
+  width: 1.125rem;
+  height: 1.125rem;
+  margin: 0;
+  accent-color: var(--color-accent);
+}
+
+.form-field .choice:has(input:checked) {
+  border-color: var(--color-accent);
+  box-shadow: inset 0 0 0 1px var(--color-accent);
+}
+
+/* The focus ring of a choice and of a color square is drawn around the whole label. The square's
+   radio button is hidden, and the choice's own ring is turned off, but only where :has() is known,
+   so a browser without it keeps the ring it has. */
+.form-field .choice:has(input:focus-visible),
+.swatch:has(input:focus-visible) {
+  outline: 3px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+@supports selector(:has(*)) {
+  .choice input:focus-visible {
+    outline: none;
+  }
 }
 
 .form-note {
   margin: 0;
 }
 
+/* The refusal. It starts with the word Error, so it does not rest on its color. */
 .form-error {
   margin: 0;
+  padding: var(--space-1) 0 var(--space-1) var(--space-3);
+  border-left: 4px solid var(--color-danger);
   color: var(--color-danger);
   font-weight: 600;
+}
+
+/* Guidance that is not an error, such as that every group color is taken. */
+.form-notice {
+  margin: 0;
+  padding: var(--space-3);
+  border-left: 4px solid var(--color-edge);
+  border-radius: var(--radius-s);
+  background: var(--color-wash);
 }
 
 .form-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 0.5rem;
+  gap: var(--space-3);
 }
 
 /* The group color grid: 8 squares, two columns by four rows. Each square is a radio button with
@@ -662,8 +904,8 @@ button {
   justify-content: center;
   min-height: 2.75rem;
   padding: 0.25rem 0.5rem;
-  border: 2px solid var(--color-muted);
-  border-radius: 0.5rem;
+  border: 2px solid var(--color-edge);
+  border-radius: var(--radius-m);
   text-align: center;
   cursor: pointer;
 }
@@ -686,16 +928,11 @@ button {
   content: "\2713\00a0";
 }
 
-.swatch:has(input:focus-visible) {
-  outline: 3px solid var(--color-accent);
-  outline-offset: 2px;
-}
-
 .swatch[data-taken] {
   background-image: repeating-linear-gradient(
     135deg,
     transparent 0 0.5rem,
-    rgb(42 33 24 / 0.3) 0.5rem 0.625rem
+    var(--stripe) 0.5rem 0.625rem
   );
   cursor: not-allowed;
 }
@@ -703,7 +940,8 @@ button {
 .swatch-chip {
   display: inline-block;
   padding: 0 0.5rem;
-  border-radius: 0.25rem;
+  border: 1px solid var(--color-edge);
+  border-radius: var(--radius-s);
   font-weight: 600;
 }
 

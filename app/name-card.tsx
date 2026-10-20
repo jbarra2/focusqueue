@@ -26,6 +26,8 @@ export function NameCard({ task, slot, isDoNow, scrolls, cardRef }: Props) {
       ref={cardRef}
     >
       {isDoNow && <p className="badge">Do now</p>}
+      {/* A completed task is never Do now, so only one of the two is ever here. */}
+      {task.completedAt !== null && <p className="badge badge-done">Done</p>}
       <h2 id="focus-title" className="task-name">
         {task.name}
       </h2>

@@ -1242,3 +1242,92 @@ planned and reviewed in Cursor.
   through at first only because my change did not really leak anything, so I redid it
   with a realistic leak and it was caught.
 - `npm run verify` (659 tests, 2 skipped on Windows) and `npm run build` pass.
+
+## 23. Give the app its warm and soft look (Claude Code)
+
+**Asked:**
+
+> Continue
+
+**What came back / what changed:**
+
+- This is the first stop where the pictures are meant to change. It styles what
+  exists and moves nothing: the header keeps the layout you asked for (Add a task at
+  the left end of the top row, the view links under it, both rows centered), and the
+  queue, the data and the actions are untouched. The only markup changes are visual
+  cues, listed below.
+- Colors. Every color is now a variable in the theme block of `app/globals.css`, and
+  no rule below it writes a color of its own. The page is cream with dark brown text.
+  The accent is a muted terracotta, used for the title, the main button, the current
+  view, links and the keyboard focus ring. Done is sage. A new `--color-edge` is the
+  edge of every card and control: it measures 3.6 to 1 on the page and 4.0 to 1 on a
+  card, where the old gray borders were about 1.4 to 1. The group colors are exactly as
+  they were, and the accent is none of them. The system font is kept, so the app makes
+  no outside request for fonts. There is also a small scale for radius, spacing and the
+  height of a control, so buttons, fields and choices line up.
+- Header. Add a task is the one filled button. The fields and the buttons are all the
+  same height. The current view is filled and underlined where the others are
+  outlines, and every pill has the same weight, so the row does not change width when
+  the view changes. Clear filters lines up with the fields beside it.
+- Cards. The focus card is raised, with a stronger shadow and an accent edge, and its
+  name sits in the middle of the card (a name too long for the card still starts at the
+  top and scrolls). The cards behind it are quieter. The Do now pill is an accent
+  fill, and a completed task gets a sage Done pill in the same place, on the focus card
+  and on the stacked cards. The labels on the details card are small capitals in the
+  card's own ink, because a muted gray would not read on every group color. The track
+  that clips the stack now clips only sideways, so the shadows are not cut off.
+- Dialog. Every field and button is a control tall, the difficulty choices are pills,
+  Add is the main button and Cancel is quiet. A refusal starts with the word Error, in
+  a bar of its own, so it does not rest on its red. The limit sentence (all 8 colors
+  taken) is a notice, not an error, because the person has not done anything wrong. A
+  disabled Add stays readable. The dialog is now a column of three parts: the heading,
+  the fields, and a footer with the refusal and the two buttons. The pictures showed
+  that at 800 px tall, with a new group and its color grid, Cancel and Add were behind
+  the dialog's scroll, which was already so before this stop. Only the fields scroll now.
+- Contrast tests in `lib/theme.test.ts`: 15 pairs of text and fill at 4.5 to 1, the
+  edge on the page, a card and the quiet box at 3 to 1, and the accent (the ring and
+  the focus card's edge) at 3 to 1 on those and on all 8 group colors. A group card's
+  edge is not measured against its own fill, which was chosen for the text and gives
+  2.3 to 2.8; it is measured against the page it sits on. A new test reads every rule
+  outside the theme block and fails on a color written there, as a hex, `rgb()` or any
+  of the 148 CSS color names, and a second test proves that check does recognize one.
+  The current view's underline has a test too.
+- I looked at the page in headless Chrome at 1280 and 520 px wide, before and after, in
+  14 states: first load, the right arrow twice, End, Completed, the dialog, a new group,
+  an existing group, Due soon, an empty search, a refusal, keyboard focus on Add a task
+  and on the first stacked card, a dialog with all 8 groups taken, and the stack with 8
+  colors. Two more states have no before: a very long name with a long description, and
+  a refusal in a dialog tall enough to scroll. One round of tweaks came out of it: a
+  stacked card's pill stretched across the whole card, so its end showed behind the
+  focus card, and the dialog buttons were out of reach. The header rows are still
+  centered on the screen at both widths, the Tab order is the same 12 stops, nothing
+  scrolls sideways, and the slide between cards takes 0 s with a reduced-motion setting
+  and 0.18 s without. Take the markup of each state, undo the intended changes (the
+  extra classes, the Error word, the notice class, the Done pills, the dialog's two
+  wrappers), and it equals the markup from before in all 28 cases, and so do the
+  records of which element had keyboard focus.
+- `/code-review` raised 13 points. I fixed nine. A sticky button bar, my first answer to
+  the buttons, could hide a refusal and cover a field that had keyboard focus, so it
+  became the footer above. Underline on the current view came back, because Windows high
+  contrast replaces the colors and a fill would be lost. The radio buttons lose their own
+  focus ring only where `:has()` is known. The quiet buttons' hover skips a button that
+  cannot be pressed, which also removed a special case on Previous and Next. A chosen
+  difficulty no longer turns bold, which made the pills change width. The test list gained the
+  dialog's ink on the quiet box. The color name check uses all 148 names instead of 31.
+  A comment claimed more than the size tokens do. The focus ring of a choice and of a
+  color square is one rule. I left four on purpose: a shared component for the Error
+  sentence (it has one use; Edit and Delete can pull it out when they have a second),
+  the dim behind the dialog depends on `::backdrop` inheriting variables, which
+  browsers older than about 2023 do not do and which only costs the dim, and the two
+  housekeeping points: `AGENTS.md` is not part of this piece and is not staged, and this
+  entry did not exist yet.
+- The tests went from 659 to 687. I undid the work one piece at a time to check that a
+  test fails: 18 checks, all caught. They were an edge too light, a color written
+  outside the block as a hex (twice), as `rgb()` and as a color name, the accent set to a
+  group color, the accent too light for text, the text on a fill too light, the Done
+  pill gone from the focus card and from the stacked cards, the Error word gone, the
+  notice given the error class, Add and Add a task no longer the main button, the
+  refusal outside the footer, an emptied footer, the footer renamed, and the underline
+  gone. Two of my own changes were bad the first time (one was a syntax error, one
+  changed nothing), so I redid them.
+- `npm run verify` (687 tests, 2 skipped on Windows) and `npm run build` pass.

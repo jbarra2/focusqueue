@@ -82,114 +82,122 @@ function AddTaskForm({ groups, today, pending, startTransition, onCancel, onAdde
 
   return (
     <form className="add-form" onSubmit={onSubmit}>
-      <div className="form-field">
-        <label htmlFor={`${ids}-name`}>Name</label>
-        <input
-          ref={nameRef}
-          id={`${ids}-name`}
-          name="name"
-          type="text"
-          required
-          maxLength={200}
-          autoComplete="off"
-          value={name}
-          onChange={(event) => setName(event.target.value)}
-        />
-      </div>
-
-      <div className="form-field">
-        <label htmlFor={`${ids}-group`}>Group (optional)</label>
-        <input
-          id={`${ids}-group`}
-          name="group"
-          type="text"
-          list={`${ids}-groups`}
-          maxLength={100}
-          autoComplete="off"
-          value={group}
-          onChange={(event) => setGroup(event.target.value)}
-        />
-        <datalist id={`${ids}-groups`}>
-          {groups.map((g) => (
-            <option key={g.name} value={g.name} />
-          ))}
-        </datalist>
-      </div>
-
-      {existing && (
-        <p className="form-note">
-          Group color:{" "}
-          <span className="swatch-chip" data-slot={existing.color}>
-            {colorName(existing.color)}
-          </span>
-        </p>
-      )}
-      {isNew && !limitReached && (
-        <ColorGrid groups={groups} value={chosenColor} onChange={setPicked} />
-      )}
-      {limitReached && (
-        <p className="form-error" role="status">
-          {GROUP_LIMIT_MESSAGE}
-        </p>
-      )}
-
-      <div className="form-field">
-        <label htmlFor={`${ids}-due`}>Due date</label>
-        <input
-          id={`${ids}-due`}
-          name="dueDate"
-          type="date"
-          required
-          value={dueDate}
-          onChange={(event) => setDueDate(event.target.value)}
-        />
-      </div>
-
-      <fieldset className="form-field">
-        <legend>Difficulty</legend>
-        <div className="choices">
-          {DIFFICULTIES.map((value) => (
-            <label key={value} className="choice">
-              <input
-                type="radio"
-                name="difficulty"
-                value={value}
-                required
-                checked={difficulty === value}
-                onChange={() => setDifficulty(value)}
-              />
-              {DIFFICULTY_LABEL[value]}
-            </label>
-          ))}
+      {/* The fields scroll when the window is shorter than the form. The footer under them, with
+          the refusal and the buttons, does not, so a refusal is always in view. */}
+      <div className="form-body">
+        <div className="form-field">
+          <label htmlFor={`${ids}-name`}>Name</label>
+          <input
+            ref={nameRef}
+            id={`${ids}-name`}
+            name="name"
+            type="text"
+            required
+            maxLength={200}
+            autoComplete="off"
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+          />
         </div>
-      </fieldset>
 
-      <div className="form-field">
-        <label htmlFor={`${ids}-description`}>Description (optional)</label>
-        <textarea
-          id={`${ids}-description`}
-          name="description"
-          rows={3}
-          maxLength={2000}
-          value={description}
-          onChange={(event) => setDescription(event.target.value)}
-        />
+        <div className="form-field">
+          <label htmlFor={`${ids}-group`}>Group (optional)</label>
+          <input
+            id={`${ids}-group`}
+            name="group"
+            type="text"
+            list={`${ids}-groups`}
+            maxLength={100}
+            autoComplete="off"
+            value={group}
+            onChange={(event) => setGroup(event.target.value)}
+          />
+          <datalist id={`${ids}-groups`}>
+            {groups.map((g) => (
+              <option key={g.name} value={g.name} />
+            ))}
+          </datalist>
+        </div>
+
+        {existing && (
+          <p className="form-note">
+            Group color:{" "}
+            <span className="swatch-chip" data-slot={existing.color}>
+              {colorName(existing.color)}
+            </span>
+          </p>
+        )}
+        {isNew && !limitReached && (
+          <ColorGrid groups={groups} value={chosenColor} onChange={setPicked} />
+        )}
+        {limitReached && (
+          // Guidance, not a refusal: the person has not done anything wrong yet.
+          <p className="form-notice" role="status">
+            {GROUP_LIMIT_MESSAGE}
+          </p>
+        )}
+
+        <div className="form-field">
+          <label htmlFor={`${ids}-due`}>Due date</label>
+          <input
+            id={`${ids}-due`}
+            name="dueDate"
+            type="date"
+            required
+            value={dueDate}
+            onChange={(event) => setDueDate(event.target.value)}
+          />
+        </div>
+
+        <fieldset className="form-field">
+          <legend>Difficulty</legend>
+          <div className="choices">
+            {DIFFICULTIES.map((value) => (
+              <label key={value} className="choice">
+                <input
+                  type="radio"
+                  name="difficulty"
+                  value={value}
+                  required
+                  checked={difficulty === value}
+                  onChange={() => setDifficulty(value)}
+                />
+                {DIFFICULTY_LABEL[value]}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+
+        <div className="form-field">
+          <label htmlFor={`${ids}-description`}>Description (optional)</label>
+          <textarea
+            id={`${ids}-description`}
+            name="description"
+            rows={3}
+            maxLength={2000}
+            value={description}
+            onChange={(event) => setDescription(event.target.value)}
+          />
+        </div>
       </div>
 
-      {message && (
-        <p className="form-error" role="alert">
-          {message}
-        </p>
-      )}
+      <div className="form-footer">
+        {message && (
+          // The word comes first, so the refusal does not rest on its color.
+          <p className="form-error" role="alert">
+            <strong>Error:</strong> {message}
+          </p>
+        )}
 
-      <div className="form-actions">
-        {/* Not while sending: closing would drop a refusal that is still on its way. */}
-        <button type="button" disabled={pending} onClick={onCancel}>
-          Cancel
-        </button>
-        <button type="submit" disabled={pending || limitReached}>
-          {pending ? "Adding..." : "Add"}
-        </button>
+        <div className="form-actions">
+          {/* Not while sending: closing would drop a refusal that is still on its way. */}
+          <button type="button" disabled={pending} onClick={onCancel}>
+            Cancel
+          </button>
+          <button type="submit" className="button-primary" disabled={pending || limitReached}>
+            {pending ? "Adding..." : "Add"}
+          </button>
+        </div>
       </div>
     </form>
   );
@@ -225,7 +233,12 @@ export function AddTask({ groups, today, onAdded }: Props) {
 
   return (
     <>
-      <button type="button" className="add-task" aria-haspopup="dialog" onClick={show}>
+      <button
+        type="button"
+        className="add-task button-primary"
+        aria-haspopup="dialog"
+        onClick={show}
+      >
         Add a task
       </button>
       {/* Escape closes a modal dialog by itself, and then says so with a close event. While the

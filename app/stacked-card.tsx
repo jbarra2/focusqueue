@@ -28,6 +28,7 @@ export function StackedCard({ task, slot, today, isDoNow, tabbable, onSelect }: 
       onClick={() => onSelect(task.id)}
     >
       {isDoNow && <span className="badge">Do now</span>}
+      {task.completedAt !== null && <span className="badge badge-done">Done</span>}
       <span className="task-name">{task.name}</span>
       {task.group !== null && <span>{task.group}</span>}
       <span className={isOverdue(task, today) ? "overdue" : undefined}>

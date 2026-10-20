@@ -193,6 +193,34 @@ describe("the button and the dialog", () => {
     ]);
   });
 
+  // A form taller than the window scrolls its fields, and not the footer. The refusal and the
+  // buttons are in the footer, so they stay in view, and a refusal is never out of sight.
+  it("keeps the refusal and the buttons in a footer, apart from the fields that scroll", async () => {
+    addTaskAction.mockResolvedValue({ ok: false, message: "Enter a name." });
+    show();
+    open();
+    fillValid();
+    await submitEvent();
+    const body = dialog().querySelector(".form-body")!;
+    const footer = dialog().querySelector(".form-footer")!;
+    expect(body.contains(field("Name"))).toBe(true);
+    expect(body.contains(field("Description (optional)"))).toBe(true);
+    expect(footer.contains(dialog().querySelector("[role=alert]"))).toBe(true);
+    expect(footer.contains(formButton("Cancel"))).toBe(true);
+    expect(footer.contains(formButton("Add"))).toBe(true);
+    expect(body.contains(dialog().querySelector("[role=alert]"))).toBe(false);
+    expect(body.contains(footer)).toBe(false);
+  });
+
+  // The page's look gives the main button of a screen a fill and every other button an outline.
+  it("marks the button that opens the dialog and Add as primary, and Cancel as not", () => {
+    show();
+    expect(addButton().classList.contains("button-primary")).toBe(true);
+    open();
+    expect(formButton("Add").classList.contains("button-primary")).toBe(true);
+    expect(formButton("Cancel").classList.contains("button-primary")).toBe(false);
+  });
+
   it("asks for a name, a due date and a difficulty, and limits the lengths", () => {
     show();
     open();
@@ -393,6 +421,19 @@ describe("the group color", () => {
     expect(formButton("Add").disabled).toBe(true);
   });
 
+  // The limit is guidance, shown before anything was sent, so it is a notice and not an error: no
+  // alert, and no Error label.
+  it("shows the limit as a notice, not as an error", () => {
+    show(eightGroups);
+    open();
+    type(field("Group (optional)"), "A ninth");
+    const note = dialog().querySelector("[role=status]")!;
+    expect(note.classList.contains("form-notice")).toBe(true);
+    expect(note.classList.contains("form-error")).toBe(false);
+    expect(note.textContent).not.toContain("Error");
+    expect(dialog().querySelector("[role=alert]")).toBeNull();
+  });
+
   it("does not stop a task from joining a group that exists when all 8 are taken", () => {
     show(eightGroups);
     open();
@@ -491,7 +532,7 @@ describe("sending the form", () => {
     expect(dialog().open).toBe(true);
 
     await act(async () => answer.resolve({ ok: false, message: "Enter a name." }));
-    expect(alertText()).toBe("Enter a name.");
+    expect(alertText()).toBe("Error: Enter a name.");
     expect(formButton("Cancel").disabled).toBe(false);
     const afterwards = new Event("cancel", { cancelable: true });
     act(() => {
@@ -520,7 +561,7 @@ describe("sending the form", () => {
     type(field("Description (optional)"), "Some words");
     await submitEvent();
 
-    expect(alertText()).toBe("Enter a name.");
+    expect(alertText()).toBe("Error: Enter a name.");
     expect(dialog().open).toBe(true);
     expect(onAdded).not.toHaveBeenCalled();
     expect(field("Name").value).toBe("Pay the rent");
@@ -540,6 +581,21 @@ describe("sending the form", () => {
     expect(onAdded).toHaveBeenCalledWith("new-id");
   });
 
+  // The refusal is red, and a person who cannot tell red from the text color still has to see that
+  // it is one, so the word comes first, in an element of its own.
+  it("starts a refusal with the word Error, in front of the sentence", async () => {
+    addTaskAction.mockResolvedValue({ ok: false, message: "Enter a name." });
+    show();
+    open();
+    fillValid();
+    await submitEvent();
+    const alert = dialog().querySelector("[role=alert]")!;
+    expect(alert.firstElementChild!.tagName).toBe("STRONG");
+    expect(alert.firstElementChild!.textContent).toBe("Error:");
+    expect(alert.firstChild).toBe(alert.firstElementChild);
+    expect(alert.textContent).toBe("Error: Enter a name.");
+  });
+
   it("shows a refusal such as a color that is taken, in the dialog and not in the page", async () => {
     addTaskAction.mockResolvedValue({
       ok: false,
@@ -550,7 +606,7 @@ describe("sending the form", () => {
     fillValid();
     type(field("Group (optional)"), "Errands");
     await submitEvent();
-    expect(alertText()).toBe("Another group already uses that color, so choose a free one.");
+    expect(alertText()).toBe("Error: Another group already uses that color, so choose a free one.");
     expect(container.querySelectorAll("[role=alert]")).toHaveLength(1);
   });
 
@@ -585,6 +641,6 @@ describe("sending the form", () => {
     fillValid();
     await submitEvent();
     expect(dialog().querySelector("i")).toBeNull();
-    expect(alertText()).toBe("<i>not italic</i>");
+    expect(alertText()).toBe("Error: <i>not italic</i>");
   });
 });

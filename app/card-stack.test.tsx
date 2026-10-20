@@ -339,6 +339,19 @@ describe("CardStack in the other views", () => {
     expect(html).toContain("1 of 1");
   });
 
+  // The focus card and the one stacked card each have one pill. An open card never has it.
+  it("marks each done card Done, once, and no open card", () => {
+    const html = render([finishedEarlier, finished], [], completedView);
+    expect(count(html, ">Done<")).toBe(2);
+    expect(count(listOf(html), 'class="badge badge-done"')).toBe(2);
+    const open = render([
+      task({ name: "Open job" }),
+      task({ name: "Next job", dueDate: "2026-10-16" }),
+    ]);
+    expect(open).not.toContain(">Done<");
+    expect(open).not.toContain("badge-done");
+  });
+
   it("an open task past its due date still says Overdue on its stacked card", () => {
     // The earlier one is the focus card, so the later one is the stacked card in the list.
     const html = render([
