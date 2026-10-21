@@ -56,3 +56,7 @@ export const taskInputSchema = z.object({
 export type TaskInput = z.input<typeof taskInputSchema>;
 
 export const taskIdSchema = z.uuid();
+
+// A calendar day as YYYY-MM-DD. A write that deletes by date checks the date it was given, because
+// a malformed one compares as text in a way that could select every row.
+export const calendarDaySchema = z.iso.date();

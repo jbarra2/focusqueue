@@ -1331,3 +1331,102 @@ planned and reviewed in Cursor.
   gone. Two of my own changes were bad the first time (one was a syntax error, one
   changed nothing), so I redid them.
 - `npm run verify` (687 tests, 2 skipped on Windows) and `npm run build` pass.
+
+## 24. Mark tasks done or open again, and clear old completed tasks (Claude Code)
+
+**Asked:**
+
+> Continue
+
+**What came back / what changed:**
+
+- This is the first stop where the page changes your data from the stack. `markDone` and
+  `markOpen` had been in the database code since the start with no caller. Now the focus
+  card has a button for each, and the Completed screen has a Clear old completed button.
+  Three Server Actions follow the Add pattern: the input is checked before the database
+  is opened, anything unexpected becomes one generic sentence with the details in the
+  server's log, and a failure to draw the page again after a write is logged and never
+  reported as a failed write.
+- Mark done. The focus card keeps its heading and gets a real button under the name. The
+  plan had the whole card become one button, but a heading cannot be inside a button, and
+  the card is labelled by that heading. Mark done asks first: the button becomes
+  "Mark done?" with Yes, done (the main button) and Not yet. The name is not repeated in
+  the question, because it is the card's own heading right above it. Escape and Not yet
+  close it, and the focus follows the buttons. On the Completed screen the button is Mark
+  open, which does not ask, because nothing is lost by it. The question is never left open
+  on a card that was moved away from, because the card is a new one each time the focus
+  returns to it.
+- After a task leaves, the keyboard focus goes to the card that takes its place. Clicking
+  a button that is then removed would otherwise drop the focus on the page. The card tells
+  the stack which task it sent before the request goes out, so it does not matter whether
+  the answer or the redrawn page arrives first, and I tested both orders. It does not take
+  the focus if the person had gone elsewhere, nor when an empty stack gets its first task.
+  Marking the last task done leaves the page where it is.
+- A request that does not work out is shown over the cards, not on the card, because the
+  card goes when the page is drawn again. A failure is an Error line, like the Add
+  dialog's. A task that was deleted somewhere else is a plain notice, "That task is no
+  longer here, so the page has been refreshed.", and the page is drawn again for it too, so
+  the stale card goes. The line goes at the next move, the next request, or Not yet.
+  Holding Enter on Mark done repeats the key onto Yes, done once it has the focus, so a
+  repeated key does not answer the question; a separate press does.
+- Clear old completed shows above the stack on Completed only, with how many it would
+  clear ("3 completed before this week.") or "Nothing from before this week." It asks
+  "Clear 3 old completed tasks?" with Yes, clear and Keep them, and the focus starts on
+  Keep them, the answer that deletes nothing. With nothing to clear the button stays in
+  place but inactive (`aria-disabled`, not `disabled`), so the focus is not lost. It
+  clears all of them whatever the filters say, and the count says so. If the page is drawn
+  again with another count while the question is open, for example when the week turns at
+  midnight, the question closes and has to be asked again, so Yes never deletes more than
+  was asked about.
+- What goes. "Old" means completed on a local day before this week's Monday. One function,
+  `isOldCompleted`, decides it, and both the page (the count) and the delete (which rows
+  go) use it, so the number shown is the number that goes. The delete is one transaction:
+  the tasks are deleted by id, then each group left with no tasks is deleted, which frees
+  its color. A failure part of the way changes nothing, and I tested that with a
+  database trigger that aborts the last delete. The action takes nothing from the page:
+  the day is the server's own, read in the same local time the page uses, and the function
+  refuses a day that is not a date, because a malformed one compares as text and could
+  select every row.
+- The narrow layout needed room. Below 60 rem the focus card was 12 rem tall, which is
+  about 7 px short of a Do now pill, a name of two lines and the question. It is 15 rem
+  now. At 1280 px wide nothing changed.
+- I looked at the page in headless Chrome at 1280 and 520 px wide, before (the last
+  commit) and after: the focus card with Mark done, the question, keyboard focus on the
+  button, Completed with the Clear control and its question, Completed with nothing shown,
+  and a very long name. The review pointed out one case I had not drawn, a name of three
+  lines with the question open at 520 px wide, so I added it and it fits. Then I drove the
+  real build through the flows and checked the database after each step, 33 checks: ask,
+  Not yet, Yes, done; Mark open on Completed; Keep them and Yes, clear, which removed the
+  three made-up old tasks and the one group only they used; a task deleted behind the
+  page; the keyboard alone (Tab, Enter, Escape, Enter); and a held Enter, where the
+  repeats did not answer and a separate press did. Every Server Action answered 200 and
+  the console stayed clean. One limit remains: at 520 px wide a name long enough to fill
+  the whole card pushes Mark done below the card's own scroll. It is reachable by
+  scrolling the card or by Tab, which scrolls it into view. Fixing it properly means
+  making only the name scroll, which changes how the card's scrolling is measured, so it
+  is on the later list.
+- `/code-review` raised 14 points. I fixed seven: the question closing when its count
+  changes (above); a check that `null` equals `null`, which let the first task of an empty
+  stack take the keyboard focus; the held Enter; the card height; two failure messages
+  that were two sentences, which are one now; Not yet and Keep them leaving a stale Error
+  line behind; and the page counting old tasks for views that do not show the number. I
+  left seven on purpose. The Add dialog still writes its own Error line, and
+  `addTaskAction` its own refresh, because they are older committed code, and a refactor
+  and a feature are separate commits. The ask-and-confirm code is in two components, and
+  should be pulled out as its own refactor before Delete makes a third. The delete goes row
+  by row from the shared rule, which was the point. If the refresh itself throws after a
+  gone task, the card stays while the notice says the page was refreshed, which I could not
+  reach. The page wiring has no unit test, and the browser run covers it. The last was that
+  this entry did not exist yet, along with `AGENTS.md`, which is not part of this piece and
+  is not staged.
+- The tests went from 687 to 798. I undid the work one piece at a time to check that a
+  test fails: 26 checks, all caught. They were the week boundary off by a day, the day read
+  in UTC, the group not dropped, every completed task deleted, the day not checked, the id
+  not checked, the gone flag dropped, the page not drawn again after done and after a gone
+  task, the focus not following, the focus flag always on, the null guard removed, the
+  held-key guard removed, the message kept on a move and on cancel, a gone task shown as an
+  error, the flag not set before sending, the wrong id sent, Escape ignored, the buttons not
+  inactive while sending, the question showing the live count, a stale question staying
+  open and one closing while its request is on the way, the button disabled instead of
+  inactive, and the request carrying input.
+- `npm run verify` (798 tests, 2 skipped on Windows) and `npm run build` pass.

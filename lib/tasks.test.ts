@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import type { Database } from "better-sqlite3";
 import { openDatabase } from "./db";
 import {
+  clearOldCompleted,
   createTask,
   deleteTask,
   GroupError,
@@ -410,4 +411,113 @@ describe("setGroupColor", () => {
     expect(() => setGroupColor(db, "A", color)).toThrow();
     expect(listGroups(db)).toEqual([{ name: "A", color: 1 }]);
   });
+});
+
+describe("clearOldCompleted", () => {
+  // 2026-10-14 is a Wednesday. Its week runs 2026-10-12 to 2026-10-18, and a task done on a local
+  // day before the 12th is old.
+  const TODAY = "2026-10-14";
+  const at = (y: number, m: number, d: number, h = 12, min = 0) =>
+    new Date(y, m - 1, d, h, min).toISOString();
+
+  /** A task that is done, at a local time. */
+  function done(name: string, completedAt: string, group: string | null = null): string {
+    const task = createTask(db, { ...INPUT, name, group }, NOW);
+    markDone(db, task.id, completedAt);
+    return task.id;
+  }
+
+  const names = () => listTasks(db).map((t) => t.name);
+
+  it("deletes the tasks completed before this week, and only those", () => {
+    done("last Sunday night", at(2026, 10, 11, 23, 59));
+    done("long ago", at(2026, 9, 1));
+    done("monday morning", at(2026, 10, 12, 0, 0));
+    done("today", at(2026, 10, 14));
+    createTask(db, { ...INPUT, name: "still open", dueDate: "2020-01-01" }, NOW);
+    expect(clearOldCompleted(db, TODAY)).toBe(2);
+    expect(names().sort()).toEqual(["monday morning", "still open", "today"]);
+  });
+
+  it("starts the week on Monday, so a Sunday and a Monday as today choose differently", () => {
+    const build = () => {
+      done("sunday evening", at(2026, 10, 18, 23, 59));
+      done("monday", at(2026, 10, 12, 0, 0));
+      done("sunday before", at(2026, 10, 11, 23, 59));
+    };
+    build();
+    // Sunday the 18th is still in the week of the 12th.
+    expect(clearOldCompleted(db, "2026-10-18")).toBe(1);
+    expect(names().sort()).toEqual(["monday", "sunday evening"]);
+    // The next day is a new week, and both of those are old.
+    expect(clearOldCompleted(db, "2026-10-19")).toBe(2);
+    expect(names()).toEqual([]);
+  });
+
+  it("leaves open tasks alone, however long ago they were created or are due", () => {
+    createTask(db, { ...INPUT, name: "open", dueDate: "2019-01-01" }, "2019-01-01T00:00:00.000Z");
+    expect(clearOldCompleted(db, TODAY)).toBe(0);
+    expect(names()).toEqual(["open"]);
+  });
+
+  it("deletes the group of its last task, and the color is free for the next new group", () => {
+    const ids = fillGroups(8);
+    markDone(db, ids[2], at(2026, 9, 1));
+    expect(clearOldCompleted(db, TODAY)).toBe(1);
+    expect(listGroups(db)).toHaveLength(7);
+    createTask(db, { ...INPUT, group: "Newcomer" }, NOW);
+    expect(colorOf("Newcomer")).toBe(3);
+  });
+
+  it("keeps a group that a task still uses, whether it is open or was done this week", () => {
+    done("old one", at(2026, 9, 1), "Shared");
+    createTask(db, { ...INPUT, name: "open one", group: "Shared" }, NOW);
+    done("old a", at(2026, 9, 2), "Other");
+    done("this week", at(2026, 10, 13), "Other");
+    expect(clearOldCompleted(db, TODAY)).toBe(2);
+    expect(listGroups(db).map((g) => g.name)).toEqual(["Other", "Shared"]);
+  });
+
+  it("deletes a group once when all of its tasks are old, and leaves a task with no group", () => {
+    done("a", at(2026, 9, 1), "Gone");
+    done("b", at(2026, 9, 2), "Gone");
+    done("loose", at(2026, 9, 3), null);
+    createTask(db, { ...INPUT, name: "keeps its group", group: "Stays" }, NOW);
+    expect(clearOldCompleted(db, TODAY)).toBe(3);
+    expect(listGroups(db)).toEqual([{ name: "Stays", color: 2 }]);
+  });
+
+  it("does nothing the second time", () => {
+    done("old", at(2026, 9, 1), "Gone");
+    expect(clearOldCompleted(db, TODAY)).toBe(1);
+    expect(clearOldCompleted(db, TODAY)).toBe(0);
+    expect(listGroups(db)).toEqual([]);
+  });
+
+  // The last delete fails after the others went through. Nothing may be left half done: not the
+  // tasks that were deleted before it, and not the group they left empty.
+  it("changes nothing when a delete fails part of the way", () => {
+    done("first", at(2026, 9, 1), "Doomed");
+    done("second", at(2026, 9, 2), "Doomed");
+    done("Boom", at(2026, 9, 3), "Doomed");
+    db.exec(
+      `CREATE TRIGGER fail_delete BEFORE DELETE ON task WHEN OLD.name = 'Boom'
+       BEGIN SELECT RAISE(ABORT, 'delete failed'); END`,
+    );
+    expect(() => clearOldCompleted(db, TODAY)).toThrow("delete failed");
+    expect(names().sort()).toEqual(["Boom", "first", "second"]);
+    expect(listGroups(db)).toEqual([{ name: "Doomed", color: 1 }]);
+  });
+
+  // A day that is not a date compares as text, and "NaN-NaN-NaN" sorts after every real date, so
+  // it would call every completed task old. It is refused before anything is deleted.
+  it.each(["", "not a date", "2026-13-40", "2026-10-14T00:00:00Z", "NaN-NaN-NaN"])(
+    "refuses %j as the day and deletes nothing",
+    (today) => {
+      done("recent", at(2026, 10, 13), "Kept");
+      expect(() => clearOldCompleted(db, today)).toThrow();
+      expect(names()).toEqual(["recent"]);
+      expect(listGroups(db)).toHaveLength(1);
+    },
+  );
 });

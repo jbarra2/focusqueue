@@ -522,8 +522,8 @@ describe("the stack in a page", () => {
       const stops = [...container.querySelectorAll("button, [tabindex]")].filter(
         (element) => element.getAttribute("tabindex") !== "-1",
       );
-      // The nearest card on each side, and Previous and Next.
-      expect(stops).toHaveLength(4);
+      // The nearest card on each side, Mark done on the focus card, and Previous and Next.
+      expect(stops).toHaveLength(5);
     });
 
     it("still reaches a card that is not a Tab stop by clicking it", () => {

@@ -3,7 +3,14 @@ import type { Database } from "better-sqlite3";
 import { GENERIC_ACTION_ERROR } from "./action-error";
 import { openDatabase } from "./db";
 import { COLOR_TAKEN_MESSAGE, GROUP_LIMIT_MESSAGE, taskInputSchema } from "./task-schema";
-import { addTask, type AddTaskResult } from "./task-actions";
+import {
+  addTask,
+  clearOldCompletedTasks,
+  markDoneTask,
+  markOpenTask,
+  TASK_GONE_MESSAGE,
+  type AddTaskResult,
+} from "./task-actions";
 import { listGroups, listTasks } from "./tasks";
 
 // Made-up task data on a database in memory, never the real one.
@@ -273,5 +280,181 @@ describe("addTask", () => {
     expect(message).toBe(GENERIC_ACTION_ERROR);
     expect(message).not.toContain("private");
     expect(consoleError).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("markDoneTask and markOpenTask", () => {
+  const NOW = "2026-10-14T15:00:00.000Z";
+  const MISSING_ID = "00000000-0000-4000-8000-000000000000";
+
+  function add(name = "Made-up report"): string {
+    const result = addTask(openDb, form({ name }));
+    if (!result.ok) throw new Error(result.message);
+    return result.id;
+  }
+
+  const completedAt = (id: string) => listTasks(db).find((t) => t.id === id)?.completedAt;
+
+  it("marks a task done at the given time, and gives back nothing but that it worked", () => {
+    const id = add();
+    expect(markDoneTask(openDb, id, NOW)).toEqual({ ok: true });
+    expect(completedAt(id)).toBe(NOW);
+  });
+
+  it("keeps the first completion time when a task is marked done again", () => {
+    const id = add();
+    markDoneTask(openDb, id, NOW);
+    expect(markDoneTask(openDb, id, "2026-10-15T09:00:00.000Z")).toEqual({ ok: true });
+    expect(completedAt(id)).toBe(NOW);
+  });
+
+  it("marks a done task open again, and only that task", () => {
+    const id = add();
+    const other = add("Another made-up report");
+    markDoneTask(openDb, id, NOW);
+    markDoneTask(openDb, other, NOW);
+    expect(markOpenTask(openDb, id)).toEqual({ ok: true });
+    expect(completedAt(id)).toBeNull();
+    expect(completedAt(other)).toBe(NOW);
+  });
+
+  // The task may have been deleted in another tab. The page is told to draw itself again, which is
+  // what the gone flag is for, and the sentence says so.
+  it.each([
+    ["done", markDoneTask],
+    ["open", markOpenTask],
+  ])("says a task that is gone is gone when it is marked %s", (_label, write) => {
+    expect(write(openDb, MISSING_ID)).toEqual({
+      ok: false,
+      message: TASK_GONE_MESSAGE,
+      gone: true,
+    });
+    expect(TASK_GONE_MESSAGE).toBe("That task is no longer here, so the page has been refreshed.");
+  });
+
+  // Only a hand-made request can send these, because the page sends the id of a card it drew.
+  it.each([
+    ["nothing", undefined],
+    ["null", null],
+    ["a number", 5],
+    ["an object", { id: "x" }],
+    ["a list", ["00000000-0000-4000-8000-000000000000"]],
+    ["empty text", ""],
+    ["text that is not an id", "not-a-task-id"],
+    ["SQL", "'; DROP TABLE task; --"],
+    ["an id that is one character short", "00000000-0000-4000-8000-00000000000"],
+  ])("refuses %s as the id, without opening the database, and logs nothing of it", (_l, id) => {
+    for (const write of [markDoneTask, markOpenTask]) {
+      consoleError.mockClear();
+      expect(write(openDb, id)).toEqual({ ok: false, message: GENERIC_ACTION_ERROR });
+      expect(openDb).not.toHaveBeenCalled();
+      expect(consoleError).toHaveBeenCalledTimes(1);
+      expect(String(consoleError.mock.calls[0])).not.toContain("DROP");
+      expect(String(consoleError.mock.calls[0])).not.toContain("not-a-task-id");
+    }
+  });
+
+  it("gives the generic sentence, and shows no path, when the database cannot be opened", () => {
+    const broken = () => {
+      throw new Error("unable to open database file C:\\private\\focusqueue.sqlite");
+    };
+    for (const result of [markDoneTask(broken, MISSING_ID), markOpenTask(broken, MISSING_ID)]) {
+      expect(result).toEqual({ ok: false, message: GENERIC_ACTION_ERROR });
+    }
+    // The details go to the server's log, one line for each of the two writes.
+    expect(consoleError).toHaveBeenCalledTimes(2);
+  });
+
+  it("gives the generic sentence when the write fails, and changes nothing", () => {
+    const id = add();
+    db.exec(
+      `CREATE TRIGGER fail_update BEFORE UPDATE ON task
+       BEGIN SELECT RAISE(ABORT, 'update failed on C:\\private'); END`,
+    );
+    const result = markDoneTask(openDb, id, NOW);
+    expect(result).toEqual({ ok: false, message: GENERIC_ACTION_ERROR });
+    expect(JSON.stringify(result)).not.toContain("private");
+    expect(completedAt(id)).toBeNull();
+  });
+});
+
+describe("clearOldCompletedTasks", () => {
+  // Wednesday the 14th, so the week began on Monday the 12th.
+  const NOW = new Date(2026, 9, 14, 12);
+  const at = (d: number, month = 9) => new Date(2026, month, d, 12).toISOString();
+
+  function done(name: string, completedAt: string, group?: string): string {
+    const result = addTask(openDb, form({ name, group }));
+    if (!result.ok) throw new Error(result.message);
+    markDoneTask(openDb, result.id, completedAt);
+    return result.id;
+  }
+
+  const names = () => listTasks(db).map((t) => t.name);
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("deletes the tasks completed before this week, and says how many", () => {
+    done("old", at(8), "Gone");
+    done("older", at(1, 8), "Gone");
+    done("this week", at(13), "Kept");
+    expect(clearOldCompletedTasks(openDb, NOW)).toEqual({ ok: true, deleted: 2 });
+    expect(names()).toEqual(["this week"]);
+    expect(listGroups(db)).toEqual([{ name: "Kept", color: 2 }]);
+  });
+
+  it("works out the week from the day it is given, not from the tasks", () => {
+    done("sunday before", at(11));
+    done("monday", at(12));
+    expect(clearOldCompletedTasks(openDb, new Date(2026, 9, 14, 12))).toEqual({
+      ok: true,
+      deleted: 1,
+    });
+    expect(clearOldCompletedTasks(openDb, new Date(2026, 9, 19, 0, 1))).toEqual({
+      ok: true,
+      deleted: 1,
+    });
+    expect(names()).toEqual([]);
+  });
+
+  it("reads the day from the server's own clock when it is not given one", () => {
+    done("old", at(8));
+    done("this week", at(13));
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(NOW);
+    expect(clearOldCompletedTasks(openDb)).toEqual({ ok: true, deleted: 1 });
+    expect(names()).toEqual(["this week"]);
+  });
+
+  it("leaves open tasks alone", () => {
+    addTask(openDb, form({ name: "open", dueDate: "2020-01-01" }));
+    expect(clearOldCompletedTasks(openDb, NOW)).toEqual({ ok: true, deleted: 0 });
+    expect(names()).toEqual(["open"]);
+  });
+
+  it("gives the generic sentence when the database cannot be opened", () => {
+    const broken = () => {
+      throw new Error("unable to open database file C:\\private\\focusqueue.sqlite");
+    };
+    expect(clearOldCompletedTasks(broken, NOW)).toEqual({
+      ok: false,
+      message: GENERIC_ACTION_ERROR,
+    });
+  });
+
+  it("gives the generic sentence, and deletes nothing, when a delete fails part of the way", () => {
+    done("first", at(8), "Doomed");
+    done("Boom", at(9), "Doomed");
+    db.exec(
+      `CREATE TRIGGER fail_delete BEFORE DELETE ON task WHEN OLD.name = 'Boom'
+       BEGIN SELECT RAISE(ABORT, 'delete failed on C:\\private'); END`,
+    );
+    const result = clearOldCompletedTasks(openDb, NOW);
+    expect(result).toEqual({ ok: false, message: GENERIC_ACTION_ERROR });
+    expect(JSON.stringify(result)).not.toContain("private");
+    expect(names().sort()).toEqual(["Boom", "first"]);
+    expect(listGroups(db)).toHaveLength(1);
   });
 });

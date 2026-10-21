@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { addDays, endOfWeek, localDay, msUntilMidnight, startOfWeek } from "./date";
-import { buildQueue } from "./sort";
+import { buildQueue, isOldCompleted } from "./sort";
 import type { Task } from "./task";
 
 // The queue and the date helpers run in the person's time zone, so these run in three zones that
@@ -77,6 +77,21 @@ const MIDWEEK = task("midweek", { completedAt: "2026-10-14T05:00:00Z" });
 const DONE_THIS_WEEK: PerZone<string[]> = {
   // Most recently completed first.
   UTC: ["sunday in utc", "midweek"],
+  "Pacific/Auckland": ["midweek", "monday ahead"],
+  "Asia/Kolkata": ["midweek", "monday ahead"],
+};
+
+// The same three tasks, seen by Clear old completed: a task is old when it was completed on a local
+// day before the Monday of the week that today is in. On Wednesday the 14th that Monday is the 12th,
+// and on the next Monday, the 19th, it is the 19th itself.
+const OLD_ON_WEDNESDAY: PerZone<string[]> = {
+  UTC: ["monday ahead"],
+  "Pacific/Auckland": [],
+  "Asia/Kolkata": [],
+};
+const NEXT_MONDAY = "2026-10-19";
+const OLD_ON_NEXT_MONDAY: PerZone<string[]> = {
+  UTC: ["midweek", "monday ahead", "sunday in utc"],
   "Pacific/Auckland": ["midweek", "monday ahead"],
   "Asia/Kolkata": ["midweek", "monday ahead"],
 };
@@ -196,6 +211,32 @@ describe.each(ZONES)("in %s", (zone) => {
     it("counts a done task in this week by the local day it was completed on", () => {
       const queue = buildQueue([...open, SUNDAY_IN_UTC, MONDAY_IN_UTC_AHEAD, MIDWEEK], TODAY);
       expect(queue.done.map((t) => t.name)).toEqual(DONE_THIS_WEEK[zone]);
+    });
+  });
+
+  describe("old completed tasks, by the local day they were completed on", () => {
+    const completed = [SUNDAY_IN_UTC, MONDAY_IN_UTC_AHEAD, MIDWEEK];
+    const oldOn = (today: string) =>
+      completed
+        .filter((t) => isOldCompleted(t, today))
+        .map((t) => t.name)
+        .sort();
+
+    // The same instant is a Sunday evening in one zone and a Monday in another, so a task that is
+    // this week's in one zone is old in the other, and the rule must read the zone it runs in.
+    it("tells a Sunday evening here from a Monday there", () => {
+      expect(oldOn(TODAY)).toEqual(OLD_ON_WEDNESDAY[zone]);
+      expect(oldOn(NEXT_MONDAY)).toEqual(OLD_ON_NEXT_MONDAY[zone]);
+    });
+
+    it("never calls a task old while the Completed screen shows it", () => {
+      for (const today of [TODAY, NEXT_MONDAY]) {
+        const shown = buildQueue(completed, today).done.map((t) => t.name);
+        expect(
+          shown.filter((name) => oldOn(today).includes(name)),
+          today,
+        ).toEqual([]);
+      }
     });
   });
 

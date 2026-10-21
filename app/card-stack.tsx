@@ -4,8 +4,9 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties }
 import { slotLookup } from "@/lib/group";
 import { focusAfter, indexOfTask, STACK_REACH, type Move } from "@/lib/stack";
 import type { Group, Task } from "@/lib/task";
+import { ErrorLine } from "./error-line";
 import { InfoCard } from "./info-card";
-import { NameCard } from "./name-card";
+import { NameCard, type CardMessage } from "./name-card";
 import { StackedCard } from "./stacked-card";
 import { useOverflows } from "./use-measure";
 import { useStackInput } from "./use-stack-input";
@@ -63,6 +64,15 @@ export function CardStack({
   const stackRef = useRef<HTMLDivElement>(null);
   const focusRef = useRef<HTMLElement>(null);
   const userMoved = useRef(false);
+  // The task whose card sent a request that is still on its way. If it leaves the list, the keyboard
+  // focus was on a button of that card, which went with it, and the card in its place gets it.
+  const leaving = useRef<string | null>(null);
+  const track = useCallback((id: string | null) => {
+    leaving.current = id;
+  }, []);
+  // A request that did not work out, or a task that was gone. It stays over the cards after the
+  // card that sent it has gone, and goes at the next move or request.
+  const [message, setMessage] = useState<CardMessage | null>(null);
   // A very long name scrolls inside the focus card, which is then a tab stop. It is measured here
   // and not in NameCard, which is a new element on every move and would start out unmeasured.
   // It is measured again when the name changes, not only when the task does.
@@ -75,10 +85,19 @@ export function CardStack({
     // If the task is gone, the card now in its place takes the focus for good. Otherwise the old
     // task would take it back if it returned, for example when it is marked open again.
     const here = tasks[index];
-    if (here && here.id !== focusId) setFocusId(here.id);
+    if (here && here.id !== focusId) {
+      // The card that is now in its place takes the keyboard focus too, but only when the task left
+      // because of a request its own card sent. Otherwise the person was somewhere else.
+      // Not null on both sides: an empty stack that gains its first task has no focus task, and
+      // nothing was sent, so it is not a task that left.
+      if (leaving.current !== null && leaving.current === focusId) userMoved.current = true;
+      leaving.current = null;
+      setFocusId(here.id);
+    }
   });
 
   const go = useCallback((move: Move | number | { id: string }) => {
+    setMessage(null);
     setFocusId((from) => {
       const next = focusAfter(tasksRef.current, from, lastIndex.current, move);
       // Only a move that changes the card asks for keyboard focus to follow it. Setting the
@@ -103,7 +122,8 @@ export function CardStack({
     if (!active || active === document.body || active.closest(".stacked-card")) {
       focusRef.current?.focus({ preventScroll: true });
     }
-  }, [index]);
+    // The id too, because when a task leaves, the card in its place is at the same index.
+  }, [index, focusId]);
 
   if (count === 0) {
     return <p className="empty">{emptyMessage}</p>;
@@ -115,6 +135,18 @@ export function CardStack({
   return (
     <div className="stack" ref={stackRef}>
       {notice && <p className="empty">{notice}</p>}
+      {message && (
+        <div className="stack-message">
+          {message.gone ? (
+            // Not a failure: the task was deleted somewhere else, and the page now shows what is true.
+            <p className="form-notice" role="status">
+              {message.text}
+            </p>
+          ) : (
+            <ErrorLine message={message.text} />
+          )}
+        </div>
+      )}
       <div className="stage">
         <InfoCard task={focused} slot={lookup(focused)} today={today} />
         {/* Safari drops the list role when list-style is none, which would lose the label. */}
@@ -139,6 +171,8 @@ export function CardStack({
                     isDoNow={isDoNow}
                     scrolls={nameScrolls}
                     cardRef={focusRef}
+                    onSend={track}
+                    onMessage={setMessage}
                   />
                 </li>
               );

@@ -62,6 +62,16 @@ function byCompletedDesc(a: Task, b: Task): number {
   );
 }
 
+/**
+ * Whether a task was completed before this week: on a local day earlier than this week's Monday.
+ * Completed shows only this week's tasks, so these show nowhere, and Clear old completed removes
+ * exactly these. The page counts them with this, and the delete picks them with it, so the number
+ * that is shown is the number that goes.
+ */
+export function isOldCompleted(task: Pick<Task, "completedAt">, today: string): boolean {
+  return task.completedAt !== null && localDay(task.completedAt) < startOfWeek(today);
+}
+
 /** Up next: every open task in queue order. Do now, if there is one, comes first. */
 export function upNext(queue: Queue): Task[] {
   return [...queue.dueSoon, ...queue.restOfWeek, ...queue.later];

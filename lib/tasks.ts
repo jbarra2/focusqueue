@@ -1,8 +1,10 @@
 import "server-only";
 import type { Database } from "better-sqlite3";
 import { firstFreeColor } from "./group";
+import { isOldCompleted } from "./sort";
 import type { Difficulty, Group, Task } from "./task";
 import {
+  calendarDaySchema,
   COLOR_TAKEN_MESSAGE,
   GROUP_LIMIT_MESSAGE,
   groupColorSchema,
@@ -226,4 +228,30 @@ export function markOpen(db: Database, id: string): boolean {
   const taskId = parseId(id);
   if (taskId === null) return false;
   return db.prepare(`UPDATE task SET completed_at = NULL WHERE id = ?`).run(taskId).changes > 0;
+}
+
+/**
+ * Deletes every task completed before this week, and each group that is left with no tasks, which
+ * frees its color. It is one transaction, so a failure changes nothing. Returns how many tasks went.
+ * `today` is the local day as YYYY-MM-DD. The caller reads the clock, so the rule can be tested, and
+ * a date that is not one throws a ZodError before anything is deleted. The tasks are picked with
+ * isOldCompleted, the same rule the page counts them with, and deleted by id.
+ */
+export function clearOldCompleted(db: Database, today: string): number {
+  const day = calendarDaySchema.parse(today);
+  return db
+    .transaction((): number => {
+      const done = db
+        .prepare(`SELECT id, group_name, completed_at FROM task WHERE completed_at IS NOT NULL`)
+        .all() as { id: string; group_name: string | null; completed_at: string }[];
+      const old = done.filter((row) => isOldCompleted({ completedAt: row.completed_at }, day));
+      const remove = db.prepare(`DELETE FROM task WHERE id = ?`);
+      for (const row of old) remove.run(row.id);
+      const groups = new Set(
+        old.flatMap((row) => (row.group_name === null ? [] : [row.group_name])),
+      );
+      for (const name of groups) dropGroupIfUnused(db, name);
+      return old.length;
+    })
+    .immediate();
 }

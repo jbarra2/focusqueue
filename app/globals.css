@@ -165,7 +165,9 @@ h1 {
   background: var(--color-wash);
 }
 
-:where(button:not(.card):disabled) {
+/* aria-disabled keeps a button focusable, so the keyboard focus is not lost when it cannot be
+   pressed: at the ends of the stack, while a request is on its way, and with nothing to clear. */
+:where(button:not(.card):disabled, button:not(.card)[aria-disabled="true"]) {
   color: var(--color-muted);
   cursor: default;
 }
@@ -178,12 +180,13 @@ h1 {
   color: var(--color-on-fill);
 }
 
-.button-primary:hover:not(:disabled) {
+.button-primary:hover:not(:disabled, [aria-disabled="true"]) {
   border-color: var(--color-accent-strong);
   background: var(--color-accent-strong);
 }
 
-.button-primary:disabled {
+.button-primary:disabled,
+.button-primary[aria-disabled="true"] {
   border-color: var(--color-muted);
   background: var(--color-muted);
   color: var(--color-on-fill);
@@ -348,6 +351,37 @@ h1 {
   cursor: default;
 }
 
+/* Clear old completed, over the stack on the Completed screen: the button and how many it would
+   clear, or the question and its two answers. The refusal, if there is one, is under them. */
+.clear-old {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2) var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+.clear-old-question {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2) var(--space-3);
+}
+
+.clear-old p {
+  margin: 0;
+}
+
+.clear-old-question p {
+  font-weight: 600;
+}
+
+.clear-old-note {
+  color: var(--color-muted);
+}
+
 /* The card stack. The focus card (the name card) is centered, and the info card sits to its
    left. Both sides of the stack are flat and mirror each other: past cards tuck behind the info
    card and upcoming cards tuck behind the focus card. The first card on each side sticks out
@@ -376,7 +410,10 @@ h1 {
 .track {
   position: relative;
   width: 100%;
-  height: 12rem;
+  /* The height of the focus card below 60rem, where the cards are not beside the info card. It has
+     room for the Do now pill, a name of three lines, and the question with its two answers. The
+     wide layout below sets its own height. */
+  height: 15rem;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -474,13 +511,6 @@ h1 {
   outline-offset: -6px;
 }
 
-/* aria-disabled keeps the button focusable, so focus is not lost at the ends of the stack. It reads
-   as inactive, and the pointer over it changes nothing. */
-.stack-controls button[aria-disabled="true"] {
-  color: var(--color-muted);
-  cursor: default;
-}
-
 /* The focus card is raised above the rest: a stronger shadow and an accent edge. Its name has the
    room that is left under the Do now or Done pill and sits in the middle of it. An auto margin
    instead of centering, so a name too long for the card starts at the top and scrolls. */
@@ -498,6 +528,36 @@ h1 {
 
 .name-card .task-name {
   margin-block: auto;
+}
+
+/* Under the name: Mark done, or the question and its two answers. It keeps its height when the card
+   is full, so it is always at the end of what scrolls. */
+.card-actions {
+  flex-shrink: 0;
+  margin-top: var(--space-3);
+}
+
+.card-question {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.card-question p {
+  margin: 0;
+  font-weight: 600;
+}
+
+.card-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+/* A request that did not work out, over the cards. It stays when the card that sent it has gone. */
+.stack-message {
+  max-width: 32rem;
+  margin: 0 auto var(--space-3);
 }
 
 /* The info card does not scroll as a whole. Only the description does, in its own box, so the

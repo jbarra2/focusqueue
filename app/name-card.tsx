@@ -1,5 +1,24 @@
-import type { RefObject } from "react";
+import {
+  useEffect,
+  useId,
+  useRef,
+  useTransition,
+  useState,
+  type KeyboardEvent,
+  type RefObject,
+} from "react";
+import type { MarkResult } from "@/lib/task-actions";
 import type { Task } from "@/lib/task";
+import { markDoneAction, markOpenAction } from "./actions";
+
+// Said when no answer came back from the action: it could not be reached, Next refused it before it
+// ran, or the answer was lost. The task may or may not have been changed, so it does not say that
+// nothing was, and it points at the list. One sentence, like every other failure.
+const SEND_FAILED_MESSAGE =
+  "The app did not answer, so look at the list to see whether the task changed, and try again if it did not.";
+
+/** What the stack shows above the cards for a request that did not work out. */
+export type CardMessage = { text: string; gone: boolean };
 
 type Props = {
   task: Task;
@@ -10,10 +29,88 @@ type Props = {
   scrolls: boolean;
   /** The card's element, so the stack can move keyboard focus to it. */
   cardRef: RefObject<HTMLElement | null>;
+  /**
+   * Called with this task's id when a request is about to be sent, and with null if it did not work
+   * out. The stack uses it to know, when the task leaves the list, that the keyboard focus was on a
+   * button of this card, which leaves with it, so that the card that takes its place gets it.
+   */
+  onSend: (id: string | null) => void;
+  /** Called with a sentence to show above the cards, or with null to take it away. */
+  onMessage: (message: CardMessage | null) => void;
 };
 
-/** The focus card: the name of the task that has the focus. */
-export function NameCard({ task, slot, isDoNow, scrolls, cardRef }: Props) {
+/**
+ * The focus card: the name of the task that has the focus, and the button that changes it. An open
+ * task has Mark done, which asks first. A done task, which is only shown on Completed, has Mark
+ * open, which does not ask, because nothing is lost by it. The card is a new element each time the
+ * focus moves to it, so the question is never left open on a card that was moved away from.
+ */
+export function NameCard({ task, slot, isDoNow, scrolls, cardRef, onSend, onMessage }: Props) {
+  const done = task.completedAt !== null;
+  const questionId = useId();
+  const [asking, setAsking] = useState(false);
+  const [pending, startTransition] = useTransition();
+  const opener = useRef<HTMLButtonElement>(null);
+  const yes = useRef<HTMLButtonElement>(null);
+  // Set by the handlers that swap the button for the question and back, which take the keyboard
+  // focus with them. It is not set on the first draw, so a card never takes focus by being drawn.
+  const refocus = useRef(false);
+
+  useEffect(() => {
+    if (!refocus.current) return;
+    refocus.current = false;
+    (asking ? yes : opener).current?.focus();
+  }, [asking]);
+
+  function ask() {
+    refocus.current = true;
+    setAsking(true);
+  }
+
+  function cancel() {
+    if (pending) return;
+    // A refusal belongs to the attempt that was just given up, so it goes with it.
+    onMessage(null);
+    refocus.current = true;
+    setAsking(false);
+  }
+
+  function send() {
+    if (pending) return;
+    onMessage(null);
+    // Before the request, so it does not matter whether the answer or the new page arrives first.
+    onSend(task.id);
+    startTransition(async () => {
+      let result: MarkResult;
+      try {
+        result = await (done ? markOpenAction : markDoneAction)(task.id);
+      } catch {
+        onSend(null);
+        onMessage({ text: SEND_FAILED_MESSAGE, gone: false });
+        return;
+      }
+      // When it worked, or the task was gone, the page is drawn again with the task out of the list,
+      // and this card goes with it. Nothing is left to do here.
+      if (result.ok) return;
+      if (!result.gone) onSend(null);
+      onMessage({ text: result.message, gone: result.gone === true });
+    });
+  }
+
+  // Holding Enter on Mark done repeats the key, and the repeats arrive at whatever has the focus by
+  // then, which is Yes, done. A repeat is the same press, not a second decision, so it does not
+  // answer the question. Two separate presses still do.
+  function onYesKeyDown(event: KeyboardEvent) {
+    if (event.repeat) event.preventDefault();
+  }
+
+  function onQuestionKeyDown(event: KeyboardEvent) {
+    if (event.key === "Escape" && !pending) {
+      event.preventDefault();
+      cancel();
+    }
+  }
+
   return (
     <article
       className="card name-card"
@@ -31,6 +128,46 @@ export function NameCard({ task, slot, isDoNow, scrolls, cardRef }: Props) {
       <h2 id="focus-title" className="task-name">
         {task.name}
       </h2>
+      <div className="card-actions">
+        {done ? (
+          <button type="button" aria-disabled={pending || undefined} onClick={send}>
+            {pending ? "Saving..." : "Mark open"}
+          </button>
+        ) : asking ? (
+          // Escape closes the question from either button, so the one handler is on the group. The
+          // group itself takes no focus and is not operated, only its two buttons are.
+          // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
+          <div
+            className="card-question"
+            role="group"
+            aria-labelledby={questionId}
+            onKeyDown={onQuestionKeyDown}
+          >
+            <p id={questionId}>Mark done?</p>
+            <div className="card-buttons">
+              <button
+                type="button"
+                ref={yes}
+                className="button-primary"
+                aria-disabled={pending || undefined}
+                onClick={send}
+                onKeyDown={onYesKeyDown}
+              >
+                {pending ? "Saving..." : "Yes, done"}
+              </button>
+              {/* Not while sending, as in the Add dialog: the person would not see how it ended.
+                  aria-disabled, not disabled, so the keyboard focus is not lost when it applies. */}
+              <button type="button" aria-disabled={pending || undefined} onClick={cancel}>
+                Not yet
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button type="button" ref={opener} onClick={ask}>
+            Mark done
+          </button>
+        )}
+      </div>
     </article>
   );
 }

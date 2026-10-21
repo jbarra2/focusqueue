@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bucketOf, buildQueue, upNext } from "./sort";
+import { bucketOf, buildQueue, isOldCompleted, upNext } from "./sort";
 import type { Difficulty, Task } from "./task";
 
 // 2026-10-14 is a Wednesday. Its week runs 2026-10-12 to 2026-10-18.
@@ -332,5 +332,56 @@ describe("the edges of the week for Done", () => {
       WEDNESDAY,
     );
     expect(names(queue.done)).toEqual([]);
+  });
+});
+
+describe("isOldCompleted", () => {
+  const local = (y: number, m: number, d: number, h: number, min: number) =>
+    new Date(y, m - 1, d, h, min).toISOString();
+  const old = (completedAt: string | null, today = WEDNESDAY) =>
+    isOldCompleted(task({ name: "x", completedAt }), today);
+
+  it("is never true for an open task, however late it is", () => {
+    expect(isOldCompleted(task({ name: "late", dueDate: "2020-01-01" }), WEDNESDAY)).toBe(false);
+  });
+
+  it("is false for a task completed this week, from the first minute of Monday on", () => {
+    expect(old(local(2026, 10, 12, 0, 0))).toBe(false);
+    expect(old(localNoon(WEDNESDAY))).toBe(false);
+    expect(old(local(2026, 10, 18, 23, 59))).toBe(false);
+  });
+
+  it("is true for a task completed before this week, up to the last minute of the Sunday before", () => {
+    expect(old(local(2026, 10, 11, 23, 59))).toBe(true);
+    expect(old(localNoon("2026-09-01"))).toBe(true);
+  });
+
+  it("uses the Monday of the week that today is in, on a Sunday and on a Monday", () => {
+    // Sunday the 18th is still in the week of Monday the 12th.
+    expect(old(local(2026, 10, 12, 0, 0), SUNDAY)).toBe(false);
+    expect(old(local(2026, 10, 11, 23, 59), SUNDAY)).toBe(true);
+    // On Monday the 19th a new week has begun, and what was this week yesterday is old now.
+    expect(old(local(2026, 10, 18, 23, 59), "2026-10-19")).toBe(true);
+    expect(old(local(2026, 10, 19, 0, 0), "2026-10-19")).toBe(false);
+  });
+
+  // Done shows this week's tasks, and Clear old completed removes the old ones. The two must never
+  // meet: a task that is on the Completed screen is never deleted, and one that is deleted was never
+  // on the screen. Tried for every day from three weeks back to a week ahead.
+  it("never says a task is old while Completed shows it", () => {
+    for (let offset = -21; offset <= 7; offset += 1) {
+      const day = new Date(2026, 9, 14 + offset);
+      const finished = task({
+        name: "finished",
+        completedAt: new Date(day.setHours(12)).toISOString(),
+      });
+      const shown = buildQueue([finished], WEDNESDAY).done.length === 1;
+      expect(shown && isOldCompleted(finished, WEDNESDAY), `offset ${offset}`).toBe(false);
+      // Before this week: old, and not shown.
+      if (offset < -2) {
+        expect(isOldCompleted(finished, WEDNESDAY), `offset ${offset}`).toBe(true);
+        expect(shown, `offset ${offset}`).toBe(false);
+      }
+    }
   });
 });
