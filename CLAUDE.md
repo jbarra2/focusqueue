@@ -26,33 +26,37 @@ Do now is the first open task in this order:
 
 1. Due soon: overdue, due today, or due tomorrow. Earliest due date first. On the same date, low before med before high, then the task created first.
 2. Rest of this week: due after tomorrow, through Sunday. Low before med before high, then earliest due date, then the task created first.
-3. If both are empty, the page says the week is clear. If no task is open at all, it says No open tasks.
+3. If both are empty but Later has tasks, Up next says the week is clear above them. If no task is open at all, it says No open tasks.
 
 Later holds open tasks due after Sunday that are not due soon. On a Sunday, a task due Monday is due soon. Later is never Do now.
 
-An overdue task stays in Due soon until it is done or its due date moves.
+An overdue task stays in Due soon until it is done or its due date moves. A done task is never overdue.
 
 ## The page
 
 One page: a header line, then the card stack.
 
 - The header holds the title, the stack filters, and an Add a task button.
-- The stack shows one current card in the center. The rest of the stack follows behind it to the right, in order. Clicking a stacked card, scrolling, or the arrow keys makes it current.
-- The current card shows as two cards side by side. The name card marks the task done when selected, after asking first. The info card shows group, due date, difficulty, and description, edits each one in place, and has Delete.
-- The page opens on Up next with the Do now task current. If no task is open, it says No open tasks.
-- Filters: Up next (every open task in queue order), Due soon, Rest of this week, Later, and Completed; one group or No group; one difficulty; search by name. They combine.
+- The stack shows one current card in the center. The cards after it tuck behind it to the right, in order, and the cards before it tuck behind the info card to the left. Both sides are flat and mirror each other. Clicking a stacked card, scrolling the stack (sideways, or up and down when the page itself does not scroll), the left and right arrow keys, Home and End with the focus in the stack, or Previous and Next makes a card current.
+- The current card shows as two cards side by side: the info card on the left and the name card on the right. Below 60rem wide the info card sits above the cards, and the cards before the current one tuck behind the name card.
+- The name card has Mark done, which asks first. A done task has Mark open instead, which does not ask. The info card shows group, due date, difficulty, and description, plus the day a done task was completed. It has Edit, which opens a dialog, and Delete.
+- Add a task and Edit open the same dialog with every field: name, group, due date, difficulty, and description. Cancel and Escape close it without saving. After an add, the page shows Up next with no filters and the new task current.
+- The page opens on Up next with the Do now task current. If no task is open, it says No open tasks. If only Later tasks are open, it says The week is clear. above them.
+- Filters: Up next (every open task in queue order), Due soon, Rest of this week, Later, and Completed; one group or No group; one difficulty; search by name. They combine. Clear filters resets the group, difficulty, and search, and keeps the view.
+- Every other view has its own empty sentence, such as Nothing is due soon. A view whose tasks are all hidden by the filters says No tasks match these filters.
+- The address holds the filters: `view`, `group`, `nogroup=1` (No group, which wins over `group`), `difficulty`, `q` for the search, and `task` for the card to start on. A value at its default is left out, so `/` is Up next with no filters. A bad value falls back to its default without changing the others, and never breaks the page. Search applies after a short pause in typing. `filterHref` in `lib/filter.ts` builds every address.
 - Completed lists tasks completed this week, most recent first. A done task leaves every other stack.
 - The Completed screen has a Clear old completed button. It deletes tasks completed before this week, after asking first, in one transaction. A group left with no tasks is deleted too, which frees its color.
 - Name, due date, and difficulty are required. Group and description may be empty.
 - A task can be added, edited, deleted, marked done, and marked open again. Delete asks first.
 - Postpone a task by editing its due date. There is no snooze.
 - Group is free text and optional. Suggest group names already used. A task with no group uses the theme's base card colors.
-- Each group has one of the theme's 8 group colors. The base colors are never group colors. The color is picked from a grid of 8 squares, two columns by four rows, when the group is first used, and can be changed from the info card. Two groups never share a color, so a color in use shows as taken.
-- When all 8 colors are taken, a new group cannot be added. Say so in one sentence: leave the group empty, choose an existing group, or delete an old group's tasks to free its color.
+- Each group has one of the theme's 8 group colors. The base colors are never group colors. The color is picked from a grid of 8 squares, two columns by four rows, when the group is first used. Two groups never share a color, so a color in use shows as taken.
+- When all 8 colors are taken, a new group cannot be added. Say so in one sentence: leave the group empty, choose an existing group, or delete an old group's tasks to free its color. Edit may still move the last task of a group to a new group, which takes the color the old group frees, and its sentence says so.
 - Wording and design stay general. The app is not tied to school or any one field.
 - Every control has a visible label and works from the keyboard. Motion respects reduced-motion settings.
 
-Not built yet: recurring tasks, reminders, drag-and-drop, a calendar, phone sync, accounts, deployment, switching color themes, and renaming or removing groups. Ask before starting any of them.
+Not built yet: recurring tasks, reminders, drag-and-drop, a calendar, phone sync, accounts, deployment, switching color themes, and recoloring, renaming, or removing groups. Ask before starting any of them.
 
 ## Data
 

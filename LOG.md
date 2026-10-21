@@ -1609,3 +1609,89 @@ You were asked two questions before Edit and Delete, and chose:
   away, and a close by Escape ignored. One survived the first time, an edit with no answer
   not releasing the handoff, and I added a test for it.
 - `npm run verify` (1052 tests, 2 skipped on Windows) and `npm run build` pass.
+
+## 27. Add a README guide for running the app, and bring CLAUDE.md up to date (Claude Code)
+
+**Asked:**
+
+> Continue
+
+> (answering which branch the README's clone step should assume) I'll merge into main
+
+**What came back / what changed:**
+
+- This is the last stop of the plan. It changes three documents and no code: the README,
+  `CLAUDE.md` and this log. Before writing them I followed the guide on a fresh clone and
+  drove the whole page in a real browser, so that the guide and the rules say what the app
+  does and not what I remembered it doing.
+- The README has a new "Run it on your computer" section. It says what you need (Git and
+  Node 24) and gives six steps: clone, `npm ci`, turn Next.js telemetry off,
+  `npm run build`, `npm start`, and Ctrl+C to stop. It names the two addresses that work,
+  `http://127.0.0.1:3000` and `http://localhost:3000`, and says that any other name for the
+  computer gets a Forbidden page on purpose. Under it: where the data lives and how to back
+  it up (copy the whole `data` folder, because recent changes can sit in the `-wal` file
+  next to the database), how to restore it and how to start over; how to update
+  (`git pull`, `npm ci`, build, start, and that an older version will not open a database
+  that a newer one has upgraded); what to do about the four problems a new user meets (the port is
+  busy, there is no build yet, the Forbidden page, the list not loading); and to pass
+  `-H 127.0.0.1` whenever `next` is run by hand. A short "How to use it" and a "Working on
+  the code" part follow, and the scripts table stays. The old text about the public-repo
+  check named four kinds of findings where the check has more, so it now points to
+  `CLAUDE.md`, which keeps the list in one place.
+- The README says a plain `git clone`, so the default branch has to carry this work. You
+  said you will merge `develop` into `main`, and I tested the steps on a clone of `develop`.
+- Following the steps changed two things. A plain `npm install` added one line to
+  `package-lock.json` (a flag for the database package), which leaves the clone modified
+  and could stop a later `git pull`, so the guide says `npm ci`, which leaves the file as it
+  is. And `npm run build` rewrites `next-env.d.ts`, so the update steps say to restore it
+  with `git checkout` if `git pull` stops over it.
+- I ran every command of the guide in a clone of `develop` (Windows, Node 24; CI runs the
+  checks and the build on Linux). `npm ci` took under two minutes and left the tree clean.
+  `npm start` before a build printed "Could not find a production build" and made no `data`
+  folder. The build took 13 seconds. After `npm start`, the first request created
+  `data/focusqueue.sqlite`, both addresses answered 200, the page said "No open tasks.", a
+  made-up Host name and `mycomputer:3000` got 403 "Forbidden", and the only listener was
+  `127.0.0.1:3000`. A second `npm start` printed "address already in use", and the guide's
+  other-port command answered. `npm run dev` gave the same answers, and `git pull` said
+  "Already up to date."
+- `CLAUDE.md` now matches the page as built. The queue section says Up next shows the week
+  is clear, and that a done task is never overdue. The page section says that the cards
+  after the current one tuck behind it on the right and the cards before it tuck behind the
+  info card on the left; that the two cards sit side by side from 60rem wide and stack
+  below that; how the stack moves; that Mark done asks first and Mark open does not; that
+  Edit opens a dialog, which Add a task shares; what the page says when the week is clear
+  or nothing matches; what Clear filters resets; and the address with its parameters,
+  defaults left out, bad values falling back, and `filterHref` as the one place that builds
+  one. The sentence that said a group's color can be changed from the info card is gone,
+  the 8-color limit says what Edit may still do, and recoloring a group is under "Not built
+  yet".
+- The combined pass in a real browser, on a production build of that clone with made-up
+  data, in headless Chrome. It reran the Mark done, Mark open and Clear old completed flow
+  (33 checks) and the Edit and Delete flow (65 checks), both of which passed. It added a
+  new flow for the parts no earlier pass covered, 40 checks: the Add dialog opening blank
+  with today's date, Cancel and Escape sending nothing, an arrow key in the dialog not
+  moving the stack, a new group with the grid (four colors taken, the first free one chosen,
+  another picked), the address `?task=<id>` after an add, the database row and the group's
+  color, markup-looking text shown as plain text, an existing group typed in another letter
+  case, a refusal that keeps every field, and Back and Forward through a view, a search, an
+  add, a group and a difficulty. All 138 checks passed, the console stayed clean, and every
+  Server Action answered 200 with this page's own origin. I looked at pictures of the Add
+  dialog and the refusal.
+- Two guards in those scripts were too loose, so I tightened them in the copies I used: a
+  database path now has to resolve inside the scratch folder, and only the scratch server
+  can be driven. I checked that your real database path and a path that only contains the
+  word are refused, and that the real database files were not touched. To check that the new
+  flow can fail, I broke two things in the scratch copy: the search adding a history entry
+  where it should replace one, and the search box not being emptied after an add. Six checks
+  failed, in the places they should, and the copy was restored and matches the commit.
+- `/code-review` raised 8 points, and six changed the text: Home and End only act when the
+  focus is in the stack, and only the left and right arrows move it; a vertical wheel moves
+  the stack only when the page itself does not scroll; the advice about `AGENTS.md` is gone,
+  because building and starting do not touch it; the README's Do now sentence was wrong
+  when only Later tasks are open, and `CLAUDE.md`'s clear-week sentence did not cover an
+  empty week with nothing in Later; the colors bullet now says that a group keeps its color
+  and what to do at 8; and the check's rule list stays in one place. One point was that this
+  entry did not exist yet. The last was a tested database function that recolors a group
+  and that nothing calls yet, which stays for the piece that will use it.
+- `npm run verify` (1052 tests, 2 skipped on Windows, and the public-repo check on the new
+  text) and `npm run build` pass. `AGENTS.md` is not part of this piece and is not staged.
