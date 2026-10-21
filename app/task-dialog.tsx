@@ -4,6 +4,7 @@ import {
   useState,
   useTransition,
   type FormEvent,
+  type KeyboardEvent,
   type ReactNode,
   type SyntheticEvent,
   type TransitionStartFunction,
@@ -36,14 +37,18 @@ export function useTaskDialog() {
   }
 
   // Escape closes a modal dialog by itself, and then says so with a close event. While the form is
-  // being sent the cancel that comes first is stopped, so a refusal is not lost.
+  // being sent the cancel that comes first is stopped, so a refusal is not lost. The close event
+  // comes a moment after the dialog was closed, so one that arrives after it was shown again is
+  // stale, and must not take the form away from the dialog that is open.
   const dialogProps = {
     ref: dialogRef,
     "aria-labelledby": titleId,
     onCancel: (event: SyntheticEvent<HTMLDialogElement>) => {
       if (pending) event.preventDefault();
     },
-    onClose: () => setShowing(false),
+    onClose: (event: SyntheticEvent<HTMLDialogElement>) => {
+      if (!event.currentTarget.open) setShowing(false);
+    },
   };
 
   return { titleId, showing, pending, startTransition, show, close, dialogProps };
@@ -86,6 +91,15 @@ type FormProps = {
   pendingLabel: string;
   /** Said when no answer came back from the action: it could not be reached, Next refused it, or the answer was lost. */
   noAnswerMessage: string;
+  /**
+   * Whether the button stays off while every group color is taken and a new group is typed. Add
+   * needs that, since a new task cannot take a color that is not free. Edit does not, since the
+   * task may be the last one in its group, and then its color is free again. The form cannot know,
+   * so the server decides, and answers with a sentence when it is not.
+   */
+  limitBlocks?: boolean;
+  /** Said at that limit, in place of the sentence that Add uses. */
+  limitMessage?: string;
 };
 
 // The fields are controlled, and the form is sent from its submit handler, not from a form action.
@@ -102,9 +116,21 @@ export function TaskForm({
   submitLabel,
   pendingLabel,
   noAnswerMessage,
+  limitBlocks = true,
+  limitMessage,
 }: FormProps) {
   const fields = useTaskFields(initial, groups);
   const [message, setMessage] = useState<string | null>(null);
+
+  // Holding Enter on the button that opened the dialog repeats the key, and the repeats arrive at the
+  // first field by then, where Enter sends the form. A repeat is the same press, not a second
+  // decision, so it sends nothing. A separate press still does, and so does Enter in the description,
+  // where it is a new line.
+  function onKeyDown(event: KeyboardEvent<HTMLFormElement>) {
+    if (event.key === "Enter" && event.repeat && !(event.target instanceof HTMLTextAreaElement)) {
+      event.preventDefault();
+    }
+  }
 
   function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -125,11 +151,13 @@ export function TaskForm({
   }
 
   return (
-    <form className="add-form" onSubmit={onSubmit}>
+    // The one handler is on the form, which is not operated itself, only its fields and buttons are.
+    // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
+    <form className="add-form" onSubmit={onSubmit} onKeyDown={onKeyDown}>
       {/* The fields scroll when the window is shorter than the form. The footer under them, with
           the refusal and the buttons, does not, so a refusal is always in view. */}
       <div className="form-body">
-        <TaskFields fields={fields} />
+        <TaskFields fields={fields} limitMessage={limitMessage} />
       </div>
 
       <div className="form-footer">
@@ -143,7 +171,7 @@ export function TaskForm({
           <button
             type="submit"
             className="button-primary"
-            disabled={pending || fields.limitReached}
+            disabled={pending || (limitBlocks && fields.limitReached)}
           >
             {pending ? pendingLabel : submitLabel}
           </button>

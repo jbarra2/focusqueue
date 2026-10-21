@@ -5,11 +5,15 @@ import { getDb } from "@/lib/db";
 import {
   addTask,
   clearOldCompletedTasks,
+  deleteTaskById,
   markDoneTask,
   markOpenTask,
+  updateTaskFromForm,
   type AddTaskResult,
   type ClearResult,
+  type DeleteResult,
   type MarkResult,
+  type UpdateTaskResult,
 } from "@/lib/task-actions";
 
 // Server Actions are POSTs that anyone who can reach the page can send, so each one only passes its
@@ -44,6 +48,19 @@ export async function markDoneAction(id: string): Promise<MarkResult> {
 export async function markOpenAction(id: string): Promise<MarkResult> {
   const result = markOpenTask(getDb, id);
   if (result.ok || result.gone) refreshPage("a task was marked open");
+  return result;
+}
+
+export async function updateTaskAction(id: string, formData: FormData): Promise<UpdateTaskResult> {
+  const result = updateTaskFromForm(getDb, id, formData);
+  // A task that is gone is drawn again too, so the card that is still showing it goes.
+  if (result.ok || result.gone) refreshPage("a task was edited");
+  return result;
+}
+
+export async function deleteTaskAction(id: string): Promise<DeleteResult> {
+  const result = deleteTaskById(getDb, id);
+  if (result.ok || result.gone) refreshPage("a task was deleted");
   return result;
 }
 

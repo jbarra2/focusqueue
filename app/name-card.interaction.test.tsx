@@ -168,7 +168,8 @@ describe("the button on the focus card", () => {
     show([A, B]);
     expect(container.querySelectorAll(".name-card h2")).toHaveLength(1);
     expect(container.querySelectorAll("button.stacked-card .card-actions")).toHaveLength(0);
-    expect(container.querySelectorAll(".card-actions")).toHaveLength(1);
+    // The info card has a row of its own, for Edit and Delete.
+    expect(container.querySelectorAll(".name-card .card-actions")).toHaveLength(1);
   });
 });
 

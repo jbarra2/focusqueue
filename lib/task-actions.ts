@@ -3,7 +3,7 @@ import type { Database } from "better-sqlite3";
 import { GENERIC_ACTION_ERROR, toActionError } from "./action-error";
 import { localDay } from "./date";
 import { taskIdSchema, taskInputSchema, type TaskInput } from "./task-schema";
-import { clearOldCompleted, createTask, markDone, markOpen } from "./tasks";
+import { clearOldCompleted, createTask, deleteTask, markDone, markOpen, updateTask } from "./tasks";
 
 // The logic of the write actions, apart from Next, so it can be tested with a database in memory.
 // app/actions.ts is the thin Server Action around it. Whatever arrives from the browser is
@@ -19,13 +19,21 @@ export type AddTaskResult = { ok: true; id: string } | { ok: false; message: str
  */
 export type MarkResult = { ok: true } | { ok: false; message: string; gone?: true };
 
+/** The answer to saving an edited task. `gone` is set as for MarkResult. */
+export type UpdateTaskResult =
+  { ok: true; id: string } | { ok: false; message: string; gone?: true };
+
+/** The answer to deleting a task. It has the shape of MarkResult, `gone` included. */
+export type DeleteResult = MarkResult;
+
 export type ClearResult = { ok: true; deleted: number } | { ok: false; message: string };
 
 export const TASK_GONE_MESSAGE = "That task is no longer here, so the page has been refreshed.";
 
-// The fields of the add form, which readTaskInput reads. Each one is text, so a file under any of
-// them, even a second value of a repeated field, can only come from a hand-made request. A test
-// checks this list against the task schema's fields, so a field added to one is not left out here.
+// The fields of the add and edit forms, which readTaskInput reads. Each one is text, so a file
+// under any of them, even a second value of a repeated field, can only come from a hand-made
+// request. A test checks this list against the task schema's fields, so a field added to one is not
+// left out here.
 const TASK_FIELDS = [
   "name",
   "group",
@@ -41,12 +49,12 @@ function fieldWithFile(formData: FormData): string | undefined {
 }
 
 /**
- * The answer to a request that is not the add form. There is no sentence a person could act on,
- * so it is the generic one, and the server's log gets one line. The line names the kind of request
- * and a field from the list above, never anything that was sent.
+ * The answer to a request that is not the add form or the edit form. There is no sentence a person
+ * could act on, so it is the generic one, and the server's log gets one line. The line names the
+ * kind of request and a field from the list above, never anything that was sent.
  */
-function refuseForged(what: string): AddTaskResult {
-  console.error(`Refused a request that is not the add form: ${what}.`);
+function refuseForged(form: "add" | "edit", what: string): AddTaskResult {
+  console.error(`Refused a request that is not the ${form} form: ${what}.`);
   return { ok: false, message: GENERIC_ACTION_ERROR };
 }
 
@@ -63,7 +71,7 @@ function colorOf(formData: FormData): number | undefined {
   return typeof value === "string" && /^\d{1,2}$/.test(value) ? Number(value) : NaN;
 }
 
-/** The task fields of the add form. A field that is not listed here, such as an id, is never read. */
+/** The task fields of the add and edit forms. A field that is not listed here, such as an id, is never read. */
 function readTaskInput(formData: FormData): TaskInput {
   const group = formData.get("group");
   return {
@@ -83,9 +91,10 @@ function readTaskInput(formData: FormData): TaskInput {
  */
 export function addTask(openDb: () => Database, formData: unknown): AddTaskResult {
   // A hand-made request can send anything in place of the form, or a file in place of a field.
-  if (!(formData instanceof FormData)) return refuseForged("it is not form data");
+  if (!(formData instanceof FormData)) return refuseForged("add", "it is not form data");
   const withFile = fieldWithFile(formData);
-  if (withFile !== undefined) return refuseForged(`a file was sent in the ${withFile} field`);
+  if (withFile !== undefined)
+    return refuseForged("add", `a file was sent in the ${withFile} field`);
   const input = readTaskInput(formData);
   try {
     // createTask checks the input again, as every write does. This check comes first so that bad
@@ -100,19 +109,21 @@ export function addTask(openDb: () => Database, formData: unknown): AddTaskResul
 }
 
 /**
- * Marks one task done or open. The id is the only thing that comes from the page, and it must be a
- * UUID: anything else, such as a number or an object, can only come from a hand-made request. That
- * is refused with the generic sentence before the database is opened, and the log gets one fixed
- * line that says nothing about what was sent. Never throws.
+ * Does something to one task, by its id: marks it done or open, or deletes it. The id is the only
+ * thing that comes from the page, and it must be a UUID: anything else, such as a number or an
+ * object, can only come from a hand-made request. That is refused with the generic sentence before
+ * the database is opened, and the log gets one fixed line that says nothing about what was sent.
+ * `verb` is only for that line. Never throws.
  */
-function mark(
+function byId(
   openDb: () => Database,
   id: unknown,
+  verb: "mark" | "delete",
   write: (db: Database, taskId: string) => boolean,
 ): MarkResult {
   const parsed = taskIdSchema.safeParse(id);
   if (!parsed.success) {
-    console.error("Refused a request to mark a task that has no valid task id.");
+    console.error(`Refused a request to ${verb} a task that has no valid task id.`);
     return { ok: false, message: GENERIC_ACTION_ERROR };
   }
   try {
@@ -129,12 +140,50 @@ export function markDoneTask(
   id: unknown,
   now: string = new Date().toISOString(),
 ): MarkResult {
-  return mark(openDb, id, (db, taskId) => markDone(db, taskId, now));
+  return byId(openDb, id, "mark", (db, taskId) => markDone(db, taskId, now));
 }
 
 /** Marks a task open again. */
 export function markOpenTask(openDb: () => Database, id: unknown): MarkResult {
-  return mark(openDb, id, markOpen);
+  return byId(openDb, id, "mark", markOpen);
+}
+
+/** Deletes one task, and its group when it was the group's last task, which frees the color. */
+export function deleteTaskById(openDb: () => Database, id: unknown): DeleteResult {
+  return byId(openDb, id, "delete", deleteTask);
+}
+
+/**
+ * Saves an edited task from the edit form's fields. The checks come in this order, and the
+ * database is opened only after the last of them: the id must be a UUID, the input must be form
+ * data with no file under a task field, and the fields must pass the schema. A task that is gone
+ * answers with the sentence that says so and `gone`, so the page is drawn again without it. Every
+ * field is sent and the whole record is written. Never throws: a failure comes back as one sentence.
+ */
+export function updateTaskFromForm(
+  openDb: () => Database,
+  id: unknown,
+  formData: unknown,
+): UpdateTaskResult {
+  const parsed = taskIdSchema.safeParse(id);
+  if (!parsed.success) {
+    console.error("Refused a request to edit a task that has no valid task id.");
+    return { ok: false, message: GENERIC_ACTION_ERROR };
+  }
+  if (!(formData instanceof FormData)) return refuseForged("edit", "it is not form data");
+  const withFile = fieldWithFile(formData);
+  if (withFile !== undefined)
+    return refuseForged("edit", `a file was sent in the ${withFile} field`);
+  const input = readTaskInput(formData);
+  try {
+    // updateTask checks the input again, as every write does. This check comes first so that bad
+    // input never reaches the database, not even to open it.
+    taskInputSchema.parse(input);
+    if (updateTask(openDb(), parsed.data, input)) return { ok: true, id: parsed.data };
+    return { ok: false, message: TASK_GONE_MESSAGE, gone: true };
+  } catch (error) {
+    return { ok: false, message: toActionError(error) };
+  }
 }
 
 /**

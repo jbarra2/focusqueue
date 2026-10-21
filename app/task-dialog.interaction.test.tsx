@@ -136,6 +136,36 @@ describe("the dialog", () => {
     expect(dialog().getAttribute("aria-labelledby")).toBe(heading.id);
   });
 
+  // The browser says a dialog was closed with a close event a moment after it was. When Escape
+  // closes it, that event is how the form is taken out of the page.
+  it("takes the form out of the page when the browser closes it by itself, as Escape does", () => {
+    show();
+    open();
+    act(() => {
+      dialog().close();
+      dialog().dispatchEvent(new Event("close"));
+    });
+    expect(dialog().open).toBe(false);
+    expect(dialog().querySelector("form")).toBeNull();
+  });
+
+  // Closed and shown again before the close event of the first closing arrives, which a person
+  // cannot do, but a script can: that event is stale and must not take the form from the open dialog.
+  it("keeps the form when a close event arrives after the dialog was shown again", () => {
+    show();
+    open();
+    act(() => {
+      formButton("Cancel").click();
+      container.querySelector<HTMLButtonElement>("button")!.click();
+    });
+    expect(dialog().open).toBe(true);
+    act(() => {
+      dialog().dispatchEvent(new Event("close"));
+    });
+    expect(dialog().open).toBe(true);
+    expect(dialog().querySelector("form")).not.toBeNull();
+  });
+
   it("is shown closed, with no form in the page, until it is opened", () => {
     show();
     expect(dialog().open).toBe(false);
@@ -201,6 +231,60 @@ describe("a form that starts with a task in it", () => {
       ),
     ).toBe(false);
     expect(dialog().querySelector(".form-note")).toBeNull();
+  });
+});
+
+// Holding Enter on the button that opened the dialog repeats the key, and the repeats arrive at the
+// first field, where Enter sends the form. A repeat is the same press and must not send it.
+describe("a held Enter", () => {
+  const enter = (target: Element, init: KeyboardEventInit) => {
+    const event = new KeyboardEvent("keydown", {
+      key: "Enter",
+      bubbles: true,
+      cancelable: true,
+      ...init,
+    });
+    act(() => {
+      target.dispatchEvent(event);
+    });
+    return event;
+  };
+
+  it("does not send the form for the repeats that arrive at a field", () => {
+    show();
+    open();
+    // Prevented, which is what stops the browser from sending the form for it.
+    expect(enter(field("Name"), { repeat: true }).defaultPrevented).toBe(true);
+    expect(enter(field("Group (optional)"), { repeat: true }).defaultPrevented).toBe(true);
+  });
+
+  it("leaves a separate press alone, so Enter still sends the form from the keyboard", () => {
+    show();
+    open();
+    expect(enter(field("Name"), { repeat: false }).defaultPrevented).toBe(false);
+  });
+
+  it("leaves a repeat in the description alone, where Enter is a new line", () => {
+    show();
+    open();
+    expect(enter(field("Description (optional)"), { repeat: true }).defaultPrevented).toBe(false);
+  });
+
+  it("leaves other held keys alone", () => {
+    show();
+    open();
+    for (const key of ["Tab", "ArrowDown", "Backspace"]) {
+      const event = new KeyboardEvent("keydown", {
+        key,
+        repeat: true,
+        bubbles: true,
+        cancelable: true,
+      });
+      act(() => {
+        field("Name").dispatchEvent(event);
+      });
+      expect(event.defaultPrevented).toBe(false);
+    }
   });
 });
 

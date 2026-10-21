@@ -1503,6 +1503,109 @@ You were asked two questions before Edit and Delete, and chose:
   result and now takes any result of that shape; the dialog hook gave out its internals and
   called its state `open`, like the element's own property, so it keeps them and calls it
   `showing`; the fields and the form each took the list of groups, and now read one; and
-  nothing tested the form with a task in it. One more, about the flag that arms the focus,\n is harmless today and is explained in the hook's comment. I left the sentence change in,\n because it was in the plan as the one visible change. The last was that `AGENTS.md` is not part of this
-  piece and is not staged.
+  nothing tested the form with a task in it. One more, about the flag that arms the focus,
+  is harmless today and is explained in the hook's comment. I left the sentence change in,
+  because it was in the plan as the one visible change. The last was that `AGENTS.md` is
+  not part of this piece and is not staged.
 - `npm run verify` (935 tests, 2 skipped on Windows) and `npm run build` pass.
+
+## 26. Edit and delete tasks from the info card (Claude Code)
+
+**Asked:**
+
+> Continue
+
+**What came back / what changed:**
+
+- This stop adds Edit and Delete for one task at a time. The info card now has two buttons
+  under the details. Both are built from the pieces the refactor before this stop pulled
+  out, so this stop mostly adds.
+- Two Server Actions, `updateTaskAction(id, formData)` and `deleteTaskAction(id)`, follow
+  the Add pattern. The id must be a UUID, the input must be form data with no file under
+  any of the six task fields, and the fields must pass the schema, all before the database
+  is opened. Anything else wrong with a hand-made request gets the one generic sentence,
+  and the server's log gets a fixed line that says what kind of request it was and never
+  what it carried. A task that was deleted somewhere else answers with the "no longer
+  here" sentence, and the page is drawn again without it. Edit writes the whole record
+  from the form, which sends every field, and leaves the creation time and the completion
+  time alone. If the task was the last one in its group, the old group is dropped in the
+  same transaction, which frees its color before a new group can take it. A failure part
+  of the way changes nothing, and I tested that with a database trigger. The helper that
+  Mark done and Mark open shared is now a general "act on one task by its id", and Delete
+  goes through it, so all three check the id in the same way.
+- Edit is the same dialog and form as Add, filled in with the task. Cancel and Escape send
+  nothing, and a draft is not kept for the next time. A refusal is an Error line inside
+  the dialog, and when no answer comes it says the task may not have been saved. With all
+  8 colors taken, a new group in the Edit form says what it needs and leaves Save on,
+  because the form cannot know whether the task is the last one in its group and the
+  server can. The last task of a group moves to a new group and takes the color it freed,
+  and any other task gets the usual limit sentence.
+- Delete asks "Delete this task?" with Yes, delete and Keep it, and the keyboard focus
+  starts on Keep it, because the other answer cannot be taken back. Escape and Keep it
+  close it. The question is never left open on a card that was moved away from, because
+  the buttons are a new element for each task. After a delete, or an edit that takes the
+  task out of the view, the keyboard focus goes to the card that takes its place, by the
+  same handoff as Mark done, and I tested both orders of the answer and the new page. When
+  an edit worked and the task stayed, the stack forgets the handoff when the page is drawn
+  again.
+- A held Enter. Enter on Edit opens the dialog and puts the focus in the name field, and
+  the repeats of the held key then arrived there, where Enter sends the form, which saved
+  the task unchanged and closed the dialog. The form now ignores a repeated Enter, except
+  in the description, where it is a new line. The guard that Mark done had on its own
+  button now lives in the ask-and-confirm hook, limited to Enter, so Delete and Clear old
+  completed have it too. Before, Enter held on Clear old completed made its question close
+  and open again. I proved the form's guard in the real browser by taking it out of a
+  scratch build and watching the check fail.
+- A dialog inside the info card needed two more things. A wheel over it reached the stack
+  through the card, so it is ignored there as the keys already were, and its form scrolls
+  by itself. And the card's small-capitals style, which was meant for the card's own
+  heading, also reached the dialog's title, so it applies to the card's own heading only.
+- Two things I found by looking at the page, not from the tests. The info card was too
+  short: at 24 rem a name of two lines with Delete's question open made the description
+  box overlap the buttons by 15 px, and a completed task, which has one more row, by 65 px.
+  The card is 26 rem tall now (in the wide layout the focus card is the same height), and
+  the details list cuts off at its foot whatever does not fit, so it is never painted over
+  the buttons. And a dialog that was closed and shown again before the browser's late
+  `close` event of the first closing arrived lost its form, so the page showed an open,
+  empty dialog. A person cannot be that fast, but a script can, so a close event that
+  arrives while the dialog is open is ignored now. The same fix covers Add.
+- Pictures from headless Chrome at 1280 and 520 px wide: the info card with its buttons,
+  Delete's question (also with a name of two lines), the Edit dialog filled in, with a new
+  group and the color grid, at the limit with its notice, with a refusal from the server,
+  a form that scrolls in a window 420 px tall, and the dialog in a narrow window. Then I
+  drove the real build through the flows and checked the database after each step, 65
+  checks: every field edited and saved, with the other tasks and the creation time
+  unchanged; Cancel and Escape; a draft not kept; Tab never landing on the page behind the
+  open dialog; a new group with the grid; the last task of a group moved with all 8 colors
+  taken, which freed its color and dropped the old group; a task that is not the last
+  refused with the sentence; Delete with Keep it, Escape and Yes, including the group it
+  freed; a task deleted behind the page, for both Save and Delete; the keyboard focus after
+  a task leaves; the wheel over a long form scrolling it and not moving the stack, and the
+  same wheel moving the stack when no dialog is open; the keyboard alone, with a held Enter
+  on Edit and on Delete; and a narrow window. Every Server Action answered 200 and the
+  console stayed clean.
+- `/code-review` raised 13 points. Six changed the code or its comments: the held Enter
+  above; the guard that stopped every held key and not only Enter; the details list, which
+  is clipped so that focus cannot scroll it; two comments that were out of date; the limit
+  sentence, which now follows the number of colors and offers the same ways out as Add's;
+  and two comments that now say only what the code does. Four were suggestions to share
+  code between components or actions, or to merge two props, which I am keeping for their
+  own refactor commit, because a refactor and a feature are separate commits. Two were
+  judgment calls about edge cases, which I decided against after looking at them. The last
+  was that `AGENTS.md` is not part of this piece and is not staged.
+- The tests went from 935 to 1052. I undid the work one piece at a time to check that a
+  test fails: 36 checks, all caught. They were the id not checked, for Edit and for Mark
+  done, Mark open and Delete together; a file in a task field not refused; the fields
+  checked after the database is opened; the gone flag lost; Delete doing the wrong write;
+  the page not drawn again for an edit of a task that is gone, and drawn again when a
+  delete was refused; the focus handoff missing for Edit and for Delete; the handoff left
+  armed after a refusal and after no answer, for both; a gone task not shown above the
+  cards; the card's buttons not new for each task; the focus not starting on Keep it; the
+  held-key guard removed, applied to every key, and applied in the description too; Save
+  blocked at the limit; the limit sentence changed; Add's sentence used in Edit; a second
+  Yes sending again; Keep it not inactive while sending; Edit not saying that it opens a
+  dialog; the dialog staying open after Save; the stack not forgetting an edit that left
+  the task in place; the wheel guard removed; and the late close event taking the form
+  away, and a close by Escape ignored. One survived the first time, an edit with no answer
+  not releasing the handoff, and I added a test for it.
+- `npm run verify` (1052 tests, 2 skipped on Windows) and `npm run build` pass.

@@ -64,11 +64,13 @@ export function CardStack({
   const stackRef = useRef<HTMLDivElement>(null);
   const focusRef = useRef<HTMLElement>(null);
   const userMoved = useRef(false);
-  // The task whose card sent a request that is still on its way. If it leaves the list, the keyboard
-  // focus was on a button of that card, which went with it, and the card in its place gets it.
-  const leaving = useRef<string | null>(null);
+  // The task whose card sent a request that is still on its way, and the list as it was then. If the
+  // task leaves the list, the keyboard focus was on a button of that card, which went with it, and the
+  // card in its place gets it. If the page is drawn again with the task still in it, as after an edit
+  // that worked, nothing left, and it is forgotten.
+  const leaving = useRef<{ id: string; tasks: Task[] } | null>(null);
   const track = useCallback((id: string | null) => {
-    leaving.current = id;
+    leaving.current = id === null ? null : { id, tasks: tasksRef.current };
   }, []);
   // A request that did not work out, or a task that was gone. It stays over the cards after the
   // card that sent it has gone, and goes at the next move or request.
@@ -90,9 +92,11 @@ export function CardStack({
       // because of a request its own card sent. Otherwise the person was somewhere else.
       // Not null on both sides: an empty stack that gains its first task has no focus task, and
       // nothing was sent, so it is not a task that left.
-      if (leaving.current !== null && leaving.current === focusId) userMoved.current = true;
+      if (leaving.current !== null && leaving.current.id === focusId) userMoved.current = true;
       leaving.current = null;
       setFocusId(here.id);
+    } else if (leaving.current !== null && leaving.current.tasks !== tasks) {
+      leaving.current = null;
     }
   });
 
@@ -148,7 +152,14 @@ export function CardStack({
         </div>
       )}
       <div className="stage">
-        <InfoCard task={focused} slot={lookup(focused)} today={today} />
+        <InfoCard
+          task={focused}
+          slot={lookup(focused)}
+          today={today}
+          groups={groups}
+          onSend={track}
+          onMessage={setMessage}
+        />
         {/* Safari drops the list role when list-style is none, which would lose the label. */}
         {/* eslint-disable-next-line jsx-a11y/no-redundant-roles */}
         <ol

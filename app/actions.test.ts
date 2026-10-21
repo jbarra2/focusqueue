@@ -2,7 +2,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Database } from "better-sqlite3";
 import { GENERIC_ACTION_ERROR } from "@/lib/action-error";
 import { createTask, listGroups, listTasks, markDone } from "@/lib/tasks";
-import { addTaskAction, clearOldCompletedAction, markDoneAction, markOpenAction } from "./actions";
+import {
+  addTaskAction,
+  clearOldCompletedAction,
+  deleteTaskAction,
+  markDoneAction,
+  markOpenAction,
+  updateTaskAction,
+} from "./actions";
 
 // The Server Action around addTask: what it asks Next to do after a write. Next's cache call and
 // the database are stand-ins (a database in memory with made-up data), so nothing real is touched.
@@ -209,5 +216,116 @@ describe("clearOldCompletedAction", () => {
   it("refreshes even when there was nothing to clear, so the page shows what is true", async () => {
     expect(await clearOldCompletedAction()).toEqual({ ok: true, deleted: 0 });
     expect(mocks.revalidatePath).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("updateTaskAction", () => {
+  const MISSING_ID = "00000000-0000-4000-8000-000000000000";
+  const made = () =>
+    createTask(db, { name: "Made-up report", dueDate: "2026-10-23", difficulty: "med" }).id;
+
+  it("saves the task, asks Next to draw the page again once, and gives back the id", async () => {
+    const id = made();
+    const result = await updateTaskAction(id, form({ name: "Renamed" }));
+    expect(result).toEqual({ ok: true, id });
+    expect(listTasks(db)[0].name).toBe("Renamed");
+    expect(mocks.revalidatePath).toHaveBeenCalledTimes(1);
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/");
+  });
+
+  it("draws the page again for a task that is gone, so the card that shows it goes", async () => {
+    const result = await updateTaskAction(MISSING_ID, form());
+    expect(result).toMatchObject({ ok: false, gone: true });
+    expect(mocks.revalidatePath).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not draw the page again when the task is refused, and changes nothing", async () => {
+    const id = made();
+    expect(await updateTaskAction(id, form({ name: "" }))).toEqual({
+      ok: false,
+      message: "Enter a name.",
+    });
+    expect(listTasks(db)[0].name).toBe("Made-up report");
+    expect(mocks.revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it("refuses an id that is not one, and anything that is not a form, and touches nothing", async () => {
+    const forgedId = await updateTaskAction({ id: MISSING_ID } as unknown as string, form());
+    const forgedForm = await updateTaskAction(MISSING_ID, {
+      name: "Made-up",
+    } as unknown as FormData);
+    expect(forgedId).toEqual({ ok: false, message: GENERIC_ACTION_ERROR });
+    expect(forgedForm).toEqual({ ok: false, message: GENERIC_ACTION_ERROR });
+    expect(mocks.getDb).not.toHaveBeenCalled();
+    expect(mocks.revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it("gives the generic sentence when the database cannot be opened, and refreshes nothing", async () => {
+    mocks.getDb.mockImplementation(() => {
+      throw new Error("unable to open database file C:\\private\\focusqueue.sqlite");
+    });
+    expect(await updateTaskAction(MISSING_ID, form())).toEqual({
+      ok: false,
+      message: GENERIC_ACTION_ERROR,
+    });
+    expect(mocks.revalidatePath).not.toHaveBeenCalled();
+  });
+
+  // The write is done, so a failure of the refresh must not read as a failed write.
+  it("still says it worked when the refresh fails, and logs it", async () => {
+    mocks.revalidatePath.mockImplementation(() => {
+      throw new Error("refresh failed");
+    });
+    const result = await updateTaskAction(made(), form({ name: "Renamed" }));
+    expect(result.ok).toBe(true);
+    expect(consoleError).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("deleteTaskAction", () => {
+  const MISSING_ID = "00000000-0000-4000-8000-000000000000";
+  const made = () =>
+    createTask(db, { name: "Made-up report", dueDate: "2026-10-23", difficulty: "med" }).id;
+
+  it("deletes the task and asks Next to draw the page again once", async () => {
+    const id = made();
+    expect(await deleteTaskAction(id)).toEqual({ ok: true });
+    expect(listTasks(db)).toEqual([]);
+    expect(mocks.revalidatePath).toHaveBeenCalledTimes(1);
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/");
+  });
+
+  it("draws the page again for a task that is gone, and says so", async () => {
+    const result = await deleteTaskAction(MISSING_ID);
+    expect(result).toMatchObject({ ok: false, gone: true });
+    expect(mocks.revalidatePath).toHaveBeenCalledTimes(1);
+  });
+
+  it("refuses an id that is not one, with the generic sentence, and touches nothing", async () => {
+    made();
+    const result = await deleteTaskAction({ id: MISSING_ID } as unknown as string);
+    expect(result).toEqual({ ok: false, message: GENERIC_ACTION_ERROR });
+    expect(mocks.getDb).not.toHaveBeenCalled();
+    expect(mocks.revalidatePath).not.toHaveBeenCalled();
+    expect(listTasks(db)).toHaveLength(1);
+  });
+
+  it("gives the generic sentence when the database cannot be opened, and refreshes nothing", async () => {
+    mocks.getDb.mockImplementation(() => {
+      throw new Error("unable to open database file C:\\private\\focusqueue.sqlite");
+    });
+    expect(await deleteTaskAction(MISSING_ID)).toEqual({
+      ok: false,
+      message: GENERIC_ACTION_ERROR,
+    });
+    expect(mocks.revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it("still says it worked when the refresh fails, and logs it", async () => {
+    mocks.revalidatePath.mockImplementation(() => {
+      throw new Error("refresh failed");
+    });
+    expect(await deleteTaskAction(made())).toEqual({ ok: true });
+    expect(consoleError).toHaveBeenCalledTimes(1);
   });
 });

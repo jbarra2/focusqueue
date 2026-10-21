@@ -396,6 +396,37 @@ describe("the stack in a page", () => {
       expect(event.defaultPrevented).toBe(false);
       expect(focusCardName()).toBe("Task long");
     });
+
+    // The Edit dialog is inside the info card, so a wheel over it reaches the stack. It is not part
+    // of the stack, and its form scrolls itself, so the cards behind it must not move.
+    it("leaves the wheel to a dialog inside the stack, such as Edit, in any direction", () => {
+      show([A, B, C]);
+      click(container.querySelector<HTMLButtonElement>(".info-card .card-actions button")!);
+      const dialog = container.querySelector("dialog")!;
+      expect(dialog.open).toBe(true);
+      for (const init of [{ deltaX: 100 }, { deltaY: 100 }, { deltaX: -100 }]) {
+        clock += 500;
+        const event = wheel(init, dialog.querySelector("input")!);
+        expect(event.defaultPrevented).toBe(false);
+        // Over the dialog itself, which is where the backdrop sends it.
+        expect(wheel(init, dialog).defaultPrevented).toBe(false);
+      }
+      expect(focusCardName()).toBe("Task a");
+      // Closed, the same wheel over the stack moves it again.
+      click(dialog.querySelector<HTMLButtonElement>(".form-actions button")!);
+      clock += 500;
+      wheel({ deltaX: 100 });
+      expect(focusCardName()).toBe("Task b");
+    });
+
+    it("leaves the wheel to anything marked as not part of the stack", () => {
+      show([A, B, C]);
+      const outside = document.createElement("div");
+      outside.setAttribute("data-no-stack", "");
+      container.querySelector(".stack")!.append(outside);
+      expect(wheel({ deltaX: 100 }, outside).defaultPrevented).toBe(false);
+      expect(focusCardName()).toBe("Task a");
+    });
   });
 
   describe("when the list changes", () => {
@@ -522,8 +553,9 @@ describe("the stack in a page", () => {
       const stops = [...container.querySelectorAll("button, [tabindex]")].filter(
         (element) => element.getAttribute("tabindex") !== "-1",
       );
-      // The nearest card on each side, Mark done on the focus card, and Previous and Next.
-      expect(stops).toHaveLength(5);
+      // The nearest card on each side, Mark done on the focus card, Edit and Delete on the info
+      // card, and Previous and Next.
+      expect(stops).toHaveLength(7);
     });
 
     it("still reaches a card that is not a Tab stop by clicking it", () => {

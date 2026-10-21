@@ -1,6 +1,8 @@
 import { useRef } from "react";
 import { completedLabel, dueLabel, isOverdue } from "@/lib/format";
-import { DIFFICULTY_LABEL, type Task } from "@/lib/task";
+import { DIFFICULTY_LABEL, type Group, type Task } from "@/lib/task";
+import { InfoActions } from "./info-actions";
+import type { CardMessage } from "./name-card";
 import { useOverflows } from "./use-measure";
 
 type Props = {
@@ -8,10 +10,18 @@ type Props = {
   /** The group's color slot, or undefined for the base card colors. */
   slot: number | undefined;
   today: string;
+  /** Every group in use, for the Edit form. */
+  groups: Group[];
+  /** As on the focus card, for Edit and Delete. */
+  onSend: (id: string | null) => void;
+  onMessage: (message: CardMessage | null) => void;
 };
 
-/** The details of the task that has the focus. One card whose content follows the focus. */
-export function InfoCard({ task, slot, today }: Props) {
+/**
+ * The details of the task that has the focus, with Edit and Delete under them. One card whose
+ * content follows the focus.
+ */
+export function InfoCard({ task, slot, today, groups, onSend, onMessage }: Props) {
   const descriptionRef = useRef<HTMLDivElement>(null);
   // A long description scrolls inside its own box. The box is a tab stop only when it scrolls.
   // It is measured again when the text changes, not only when the task does.
@@ -52,6 +62,15 @@ export function InfoCard({ task, slot, today }: Props) {
           </div>
         </dd>
       </dl>
+      {/* Keyed by the task, so a question or a draft is not left on another task's details. The card
+          itself is not, so the description box keeps its element when the focus moves. */}
+      <InfoActions
+        key={task.id}
+        task={task}
+        groups={groups}
+        onSend={onSend}
+        onMessage={onMessage}
+      />
     </div>
   );
 }

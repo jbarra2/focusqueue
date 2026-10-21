@@ -33,7 +33,10 @@ type Ask = {
    * closed arms nothing that matters.
    */
   close: (withFocus?: boolean) => void;
-  /** Escape cancels, from either button. Put it on the group that holds the question. */
+  /**
+   * Escape cancels, from either button, and a repeat of a held Enter answers nothing. Put it on the
+   * group that holds the question.
+   */
   onKeyDown: (event: KeyboardEvent) => void;
 };
 
@@ -77,7 +80,12 @@ export function useAsk(onCancel?: () => void): Ask {
     close();
   }
 
+  // Holding Enter on the button that asks repeats the key, and the repeats arrive at whatever has
+  // the focus by then, which is one of the answers. A repeat is the same press, not a second
+  // decision, so it answers nothing, and the question does not close and open again for as long as
+  // the key is held. Two separate presses still do. Other keys repeat as they like.
   function onKeyDown(event: KeyboardEvent) {
+    if (event.key === "Enter" && event.repeat) event.preventDefault();
     if (event.key === "Escape" && !pending) {
       event.preventDefault();
       cancel();

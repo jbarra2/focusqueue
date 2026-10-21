@@ -155,6 +155,36 @@ describe("asking first", () => {
   });
 });
 
+describe("a held Enter", () => {
+  // Enter on Clear old completed puts the focus on Keep them, and the repeats of a held key arrive
+  // there. They are the same press, so they must not give the question up, which would open it again.
+  it("does not give the question up for the repeats, and leaves a separate press alone", () => {
+    show(2);
+    click(button("Clear old completed"));
+    const repeat = new KeyboardEvent("keydown", {
+      key: "Enter",
+      repeat: true,
+      bubbles: true,
+      cancelable: true,
+    });
+    act(() => {
+      button("Keep them").dispatchEvent(repeat);
+    });
+    expect(repeat.defaultPrevented).toBe(true);
+    expect(labels()).toEqual(["Yes, clear", "Keep them"]);
+    const press = new KeyboardEvent("keydown", {
+      key: "Enter",
+      repeat: false,
+      bubbles: true,
+      cancelable: true,
+    });
+    act(() => {
+      button("Keep them").dispatchEvent(press);
+    });
+    expect(press.defaultPrevented).toBe(false);
+  });
+});
+
 describe("clearing", () => {
   it("sends the request on Yes, clear, with nothing in it", async () => {
     clearOldCompletedAction.mockResolvedValue({ ok: true, deleted: 3 });

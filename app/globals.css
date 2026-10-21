@@ -562,24 +562,27 @@ h1 {
 
 /* The info card does not scroll as a whole. Only the description does, in its own box, so the
    group, due date, and difficulty stay in view. Its height is fixed, so the stack does not jump
-   up and down as the focus moves between tasks with short and long descriptions. */
+   up and down as the focus moves between tasks with short and long descriptions. It has room for
+   a name of two lines, Edit and Delete under the details, and Delete's question in their place,
+   with the description box still a few lines tall. */
 .info-card {
   display: flex;
   flex-direction: column;
   width: var(--info-w);
-  height: 24rem;
+  height: 26rem;
   overflow: hidden;
 }
 
-/* Only the description gives up height when the card is full. The heading and the name keep it. */
-.info-card h2,
+/* Only the description gives up height when the card is full. The heading and the name keep it. The
+   heading is the card's own: Edit opens a dialog inside the card, with a heading of its own. */
+.info-card > h2,
 .info-card .task-name {
   flex-shrink: 0;
 }
 
 /* The labels are small capitals in the card's own ink. A muted gray would not read on every group
    color, and the ink is already checked against each one. */
-.info-card h2,
+.info-card > h2,
 .info-card dt {
   font-size: 0.75rem;
   font-weight: 700;
@@ -587,7 +590,7 @@ h1 {
   text-transform: uppercase;
 }
 
-.info-card h2 {
+.info-card > h2 {
   margin: 0 0 0.25rem;
 }
 
@@ -602,12 +605,18 @@ h1 {
   line-height: 1.3;
 }
 
+/* What does not fit is cut off here, at the foot of the details, and never painted over the buttons
+   under them. The description is the last item, so it is what goes. clip, not hidden: hidden can
+   still be scrolled by focus, which would move the details up. If a browser does not know clip, it
+   drops that line and keeps the one above. */
 .info-card dl {
   display: flex;
   flex: 1;
   flex-direction: column;
   min-height: 0;
   margin: 0.5rem 0 0;
+  overflow: hidden;
+  overflow: clip;
 }
 
 /* A group name can be one long word, so values wrap anywhere instead of running out of the card. */
@@ -1015,7 +1024,7 @@ h1 {
   .stage {
     display: block;
     position: relative;
-    height: 24rem;
+    height: 26rem;
   }
 
   .track {

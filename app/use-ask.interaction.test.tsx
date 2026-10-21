@@ -220,6 +220,47 @@ describe("giving it up", () => {
   });
 });
 
+// Holding Enter on the button that asks repeats the key, and the repeats arrive at whichever answer
+// has the focus by then. A repeat is the same press and must not answer the question.
+describe("a held key", () => {
+  const key = (name: string, init: KeyboardEventInit) =>
+    new KeyboardEvent("keydown", { key: name, bubbles: true, cancelable: true, ...init });
+  const dispatch = (target: Element, event: KeyboardEvent) =>
+    act(() => {
+      target.dispatchEvent(event);
+    });
+
+  it("answers nothing for the repeats of a held Enter, from either button, and the question stays", () => {
+    show();
+    click(button("Open"));
+    for (const label of ["Yes", "No"]) {
+      const repeat = key("Enter", { repeat: true });
+      dispatch(button(label), repeat);
+      // Prevented, which is what stops the browser from pressing the button for it.
+      expect(repeat.defaultPrevented).toBe(true);
+    }
+    expect(labels()).toEqual(["Yes", "No", "Close", "Close quietly"]);
+  });
+
+  it("leaves a separate press of Enter alone, so the answer can still be given from the keyboard", () => {
+    show();
+    click(button("Open"));
+    const press = key("Enter", { repeat: false });
+    dispatch(button("No"), press);
+    expect(press.defaultPrevented).toBe(false);
+  });
+
+  it("leaves other held keys alone, so Tab and the arrows can be held", () => {
+    show();
+    click(button("Open"));
+    for (const name of ["Tab", "ArrowRight", "ArrowDown"]) {
+      const repeat = key(name, { repeat: true });
+      dispatch(button("Yes"), repeat);
+      expect(repeat.defaultPrevented).toBe(false);
+    }
+  });
+});
+
 describe("closing", () => {
   it("gives the focus back to the opener, which is what a request that worked does", () => {
     show();

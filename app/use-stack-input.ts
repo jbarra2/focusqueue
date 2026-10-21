@@ -78,6 +78,11 @@ export function useStackInput({ stackRef, tasksRef, lastIndex, go, hasStack }: I
     const onWheel = (event: WheelEvent) => {
       // Ctrl with the wheel, and a pinch on a trackpad, zoom the page. Leave that alone.
       if (event.ctrlKey || event.metaKey) return;
+      // A dialog is not part of the stack, as for the keys above, even when it is inside one of its
+      // cards, as Edit is. Its form scrolls itself, and over it the wheel must not step the cards
+      // behind it. Nothing is prevented, so the browser scrolls the form.
+      if (event.target instanceof Element && event.target.closest("dialog, [data-no-stack]"))
+        return;
       // Which way the wheel moves is decided in one place, which wheelDelta uses too.
       const vertical = isVerticalWheel(event.deltaX, event.deltaY);
       // A box with more text than fits scrolls itself, so leave the wheel to it.

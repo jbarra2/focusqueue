@@ -66,8 +66,14 @@ export function useTaskFields(initial: TaskFieldValues, groups: Group[]) {
 
 export type TaskFieldsState = ReturnType<typeof useTaskFields>;
 
+type FieldsProps = {
+  fields: TaskFieldsState;
+  /** Said when every group color is taken and a new group is typed. Add's sentence by default. */
+  limitMessage?: string;
+};
+
 /** The fields of a task: name, group with its color, due date, difficulty and description. */
-export function TaskFields({ fields }: { fields: TaskFieldsState }) {
+export function TaskFields({ fields, limitMessage = GROUP_LIMIT_MESSAGE }: FieldsProps) {
   const ids = useId();
   const { groups, existing, isNew, limitReached } = fields;
   return (
@@ -120,7 +126,7 @@ export function TaskFields({ fields }: { fields: TaskFieldsState }) {
       {limitReached && (
         // Guidance, not a refusal: the person has not done anything wrong yet.
         <p className="form-notice" role="status">
-          {GROUP_LIMIT_MESSAGE}
+          {limitMessage}
         </p>
       )}
 
