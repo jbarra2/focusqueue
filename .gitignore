@@ -18,6 +18,10 @@ data/
 .env.*
 !.env.example
 
+# Your own personal terms for scripts/check-public.mjs, and the copies an editor makes of them.
+# Never commit these.
+.public-check.local*
+
 # Tests and logs
 coverage/
 *.log

@@ -36,6 +36,11 @@ export default [
     },
   },
   {
+    // The scripts are plain JavaScript that Node runs, so they need the Node globals.
+    files: ["scripts/**/*.mjs"],
+    languageOptions: { globals: globals.node },
+  },
+  {
     files: ["**/*.{jsx,tsx}"],
     plugins: {
       "jsx-a11y": jsxA11y,

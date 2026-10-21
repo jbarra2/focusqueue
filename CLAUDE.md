@@ -16,7 +16,7 @@ Do not add Express, Prisma or another ORM, Postgres, Docker, authentication, Ope
 
 TypeScript 7 is the compiler. `typescript-eslint` does not support it yet, so ESLint parses TypeScript with Babel. `npm run typecheck` is the type gate. Do not downgrade TypeScript to make a lint tool start.
 
-`npm run verify` runs typecheck, lint, format check, and tests.
+`npm run verify` runs the public-repo check, typecheck, lint, format check, and tests.
 
 ## The queue
 
@@ -95,6 +95,7 @@ There is no login, so only this computer may reach the app.
 - An expected failure returns one sentence the user can act on. Log the details on the server.
 - Render task text as plain text. No `dangerouslySetInnerHTML` and no Markdown rendering.
 - `data/` stays out of git. Test data is made up, never copied from the real database.
+- The repository is public, so `npm run verify` and CI run `scripts/check-public.mjs`. It fails on an email address, a path into a user folder, a key or token shape, a word about accounts or plans, and a database, `.env` or key file, in any tracked or new file, and it prints only the file, the line and the rule, never the text. Your own name, emails and other personal terms go in `.public-check.local`, which is in `.gitignore`, one per line. A comment on a line can waive a rule for that line, `public-check: allow` followed by the rule's name (for example `email`), for a made-up example only, never for a real value. A personal term cannot be waived.
 - No network calls, analytics, or telemetry from the app's own code. Next.js telemetry is a per-machine setting, so run `npx next telemetry disable` once after cloning. The Next dev server's own version check is the only outside request.
 
 ## Stability
@@ -107,7 +108,7 @@ There is no login, so only this computer may reach the app.
 
 ## Build log
 
-`LOG.md` has one numbered entry per piece of work. Each entry quotes what I asked under **Asked** and lists the results under **What came back / what changed**. The heading names the tool, such as Claude Code. The repository is public, so keep real tasks, other private repositories, and personal details such as accounts, plans, emails, and local paths out of every file, including `LOG.md`, `CLAUDE.md`, and commit messages.
+`LOG.md` has one numbered entry per piece of work. Each entry quotes what I asked under **Asked** and lists the results under **What came back / what changed**. The heading names the tool, such as Claude Code. The repository is public, so keep real tasks, other private repositories, and personal details such as accounts, plans, emails, and local paths out of every file, including `LOG.md`, `CLAUDE.md`, and commit messages. Say what was fixed, not what is still open: a weakness that is not fixed yet stays in private notes, never in `LOG.md`, a code comment, or a commit message, because in a public repository that is a map to it.
 
 ## Commits
 
