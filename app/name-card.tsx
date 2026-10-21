@@ -1,15 +1,9 @@
-import {
-  useEffect,
-  useId,
-  useRef,
-  useTransition,
-  useState,
-  type KeyboardEvent,
-  type RefObject,
-} from "react";
+import type { KeyboardEvent, RefObject } from "react";
 import type { MarkResult } from "@/lib/task-actions";
 import type { Task } from "@/lib/task";
 import { markDoneAction, markOpenAction } from "./actions";
+import { Question } from "./question";
+import { useAsk } from "./use-ask";
 
 // Said when no answer came back from the action: it could not be reached, Next refused it before it
 // ran, or the answer was lost. The task may or may not have been changed, so it does not say that
@@ -47,33 +41,18 @@ type Props = {
  */
 export function NameCard({ task, slot, isDoNow, scrolls, cardRef, onSend, onMessage }: Props) {
   const done = task.completedAt !== null;
-  const questionId = useId();
-  const [asking, setAsking] = useState(false);
-  const [pending, startTransition] = useTransition();
-  const opener = useRef<HTMLButtonElement>(null);
-  const yes = useRef<HTMLButtonElement>(null);
-  // Set by the handlers that swap the button for the question and back, which take the keyboard
-  // focus with them. It is not set on the first draw, so a card never takes focus by being drawn.
-  const refocus = useRef(false);
-
-  useEffect(() => {
-    if (!refocus.current) return;
-    refocus.current = false;
-    (asking ? yes : opener).current?.focus();
-  }, [asking]);
-
-  function ask() {
-    refocus.current = true;
-    setAsking(true);
-  }
-
-  function cancel() {
-    if (pending) return;
-    // A refusal belongs to the attempt that was just given up, so it goes with it.
-    onMessage(null);
-    refocus.current = true;
-    setAsking(false);
-  }
+  // A refusal belongs to the attempt that was just given up, so it goes with it. The focus goes to
+  // Yes, done when the question opens, and back to Mark done when it closes.
+  const {
+    asking,
+    pending,
+    startTransition,
+    opener,
+    answer: yes,
+    ask,
+    cancel,
+    onKeyDown,
+  } = useAsk(() => onMessage(null));
 
   function send() {
     if (pending) return;
@@ -104,13 +83,6 @@ export function NameCard({ task, slot, isDoNow, scrolls, cardRef, onSend, onMess
     if (event.repeat) event.preventDefault();
   }
 
-  function onQuestionKeyDown(event: KeyboardEvent) {
-    if (event.key === "Escape" && !pending) {
-      event.preventDefault();
-      cancel();
-    }
-  }
-
   return (
     <article
       className="card name-card"
@@ -134,16 +106,7 @@ export function NameCard({ task, slot, isDoNow, scrolls, cardRef, onSend, onMess
             {pending ? "Saving..." : "Mark open"}
           </button>
         ) : asking ? (
-          // Escape closes the question from either button, so the one handler is on the group. The
-          // group itself takes no focus and is not operated, only its two buttons are.
-          // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
-          <div
-            className="card-question"
-            role="group"
-            aria-labelledby={questionId}
-            onKeyDown={onQuestionKeyDown}
-          >
-            <p id={questionId}>Mark done?</p>
+          <Question className="card-question" label="Mark done?" onKeyDown={onKeyDown}>
             <div className="card-buttons">
               <button
                 type="button"
@@ -161,7 +124,7 @@ export function NameCard({ task, slot, isDoNow, scrolls, cardRef, onSend, onMess
                 Not yet
               </button>
             </div>
-          </div>
+          </Question>
         ) : (
           <button type="button" ref={opener} onClick={ask}>
             Mark done

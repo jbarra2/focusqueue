@@ -612,17 +612,18 @@ describe("sending the form", () => {
 
   // The answer may have been lost after the task was saved, so the sentence must not claim that
   // nothing was. It sends the person to the list instead, so they do not add the task twice.
-  it("says the task may not have been saved when no answer comes, and keeps what was typed", async () => {
+  it("sends the person to the list when no answer comes, and keeps what was typed", async () => {
     addTaskAction.mockRejectedValue(new Error("Invalid Server Actions request."));
     show();
     open();
     fillValid();
     await submitEvent();
     const message = alertText()!;
-    expect(message).toContain("may not have been saved");
-    expect(message).toContain("Look at the list");
+    expect(message).toContain("look at the list to see whether the task was saved");
     expect(message).not.toContain("nothing was saved");
     expect(message).not.toContain("Invalid Server Actions");
+    // One sentence, like every other failure: a single full stop, at the end.
+    expect(message.match(/[.!?]/g)).toHaveLength(1);
     expect(field("Name").value).toBe("Pay the rent");
     expect(onAdded).not.toHaveBeenCalled();
     expect(formButton("Add").disabled).toBe(false);

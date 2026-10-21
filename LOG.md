@@ -1430,3 +1430,79 @@ planned and reviewed in Cursor.
   open and one closing while its request is on the way, the button disabled instead of
   inactive, and the request carrying input.
 - `npm run verify` (798 tests, 2 skipped on Windows) and `npm run build` pass.
+
+## 25. Share the ask-and-confirm code and the task form, no behavior change (Claude Code)
+
+**Asked:**
+
+> Continue
+
+You were asked two questions before Edit and Delete, and chose:
+
+> Yes, a separate refactor commit first
+
+> A dialog opened from the info card
+
+**What came back / what changed:**
+
+- This is a refactor that comes before the next stop, Edit and Delete, so that stop only
+  adds. You chose to do it as its own commit, and chose a dialog for Edit instead of
+  turning the details card into the form. Nothing the page does changes, with one
+  sentence of wording (below).
+- Ask and confirm. Mark done and Clear old completed repeated the same code: a button
+  turns into a question with two answers, the keyboard focus goes with it, Escape gives it
+  up, nothing can be given up while a request is on its way, and a refusal that belongs to
+  the attempt goes when it is given up. That is now one hook, `useAsk`, and one component
+  for the question's group, `Question`. What belongs to one of them stays there: Mark
+  done's held-key guard and its handoff to the stack, and Clear's count and its check that
+  the question still says what Yes would do. Delete will be the third user.
+- The task form. The fields (name, group with its color, due date, difficulty,
+  description), their state, and what follows from the group that is typed moved out of
+  the Add dialog into `useTaskFields` and `TaskFields`. The dialog itself moved into
+  `useTaskDialog` and `TaskDialog`, and the form with its fixed footer into `TaskForm`,
+  which takes its starting values, its two button labels, the action to send to, and
+  what to say when no answer comes. Add is now the header button plus those three. Edit will
+  be the same three with a task's values in them. The class names stay as they were, so
+  the stylesheet and the markup do not change.
+- Two tidy-ups that were on the list: the Add form's refusal uses `ErrorLine`, and
+  `addTaskAction` uses the same helper for drawing the page again as the other three
+  actions, with the same log line as before.
+- The one visible change: the Add dialog's "no answer" sentence was two sentences, and is
+  one now, like every other failure: "The app did not answer, so look at the list to see
+  whether the task was saved, and try again if it was not." The test that read the old
+  words changed with it.
+- The same page, checked in headless Chrome at 1280 and 520 px wide, before (the last
+  commit) and after, on one set of made-up tasks: 16 states of the stack and the Add dialog
+  (open, with a new group, with an existing group, a refusal, all 8 groups taken, a
+  refusal in a dialog tall enough to scroll) and 7 states of Mark done and Clear old
+  completed, with the question open. That is 152 comparisons of the picture, the markup and
+  which element had keyboard focus, and all match. I ran them again on the final code
+  after the review fixes. One thing differs inside the markup: the id that links a question
+  to its words. React spells the id of an element made after the page loaded in lower
+  case, and the question now makes its id when it opens, not when the card is drawn. It is
+  still unique and still linked.
+- 24 new tests: 12 for the hook and the question, through a small harness (focus goes to
+  the answer and back, never on the first draw, StrictMode too, Escape, nothing while
+  sending, closing with and without the focus), and 12 for the dialog and form with a task
+  already in the fields, which Add never does: every field filled in and the first one
+  focused, a group that exists and one that is new, a draft that does not carry over, the
+  labels, a refusal, no answer, and Escape held off while sending.
+- I undid the work one piece at a time to check that a test fails: 24 checks, all
+  caught. They were the focus not moving, a question given up while sending, the cancel
+  handler not called, Escape ignored and not held off, the close never and always taking
+  the focus, the first draw taking it, the question not linked to its words or without its
+  ref, the form always in the page, the dialog without its title link and without its
+  Escape rule, the no-answer sentence lost, the starting values ignored (the date, the
+  group, the difficulty, the description), the first field not focused, the button not
+  disabled at the color limit, the page not drawn again after an add, and the labels
+  fixed. Two of them are two paths that each close the form, so I removed both together,
+  and it was caught.
+- `/code-review` raised 10 points. Six changed the code or its comments: the hook said the
+  answer that takes the focus is the safe one, which is true for Clear and not for Mark
+  done; two comments named Delete, which does not exist yet; the form was typed to Add's
+  result and now takes any result of that shape; the dialog hook gave out its internals and
+  called its state `open`, like the element's own property, so it keeps them and calls it
+  `showing`; the fields and the form each took the list of groups, and now read one; and
+  nothing tested the form with a task in it. One more, about the flag that arms the focus,\n is harmless today and is explained in the hook's comment. I left the sentence change in,\n because it was in the plan as the one visible change. The last was that `AGENTS.md` is not part of this
+  piece and is not staged.
+- `npm run verify` (935 tests, 2 skipped on Windows) and `npm run build` pass.
