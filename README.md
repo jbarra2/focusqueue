@@ -47,7 +47,7 @@ Stop the app and back up `data` first. Then run `git pull`, `npm ci`, `npm run b
 
 ## Working on the code
 
-`npm run dev` starts the dev server on the same address, reloads as you edit, and uses the same `data/`. The Next.js dev server's own version check is the only request it makes outside this computer.
+`npm run dev` starts the dev server on the same address, reloads as you edit, and uses the same `data/`. The only requests it makes outside this computer are Next.js's own: a version check, and a check of npm's security advisories for the installed Next.js, which `npm run build` makes too. `npm start` makes neither.
 
 `npm run verify` runs the public-repo check, typecheck, lint, format check, and tests. CI runs it, then a build, on every push to `main` or `develop` and on every pull request.
 

@@ -100,7 +100,7 @@ There is no login, so only this computer may reach the app.
 - Render task text as plain text. No `dangerouslySetInnerHTML` and no Markdown rendering.
 - `data/` stays out of git. Test data is made up, never copied from the real database.
 - The repository is public, so `npm run verify` and CI run `scripts/check-public.mjs`. It fails on an email address, a path into a user folder, a key or token shape, a word about accounts or plans, and a database, `.env` or key file, in any tracked or new file, and it prints only the file, the line and the rule, never the text. Your own name, emails and other personal terms go in `.public-check.local`, which is in `.gitignore`, one per line. A comment on a line can waive a rule for that line, `public-check: allow` followed by the rule's name (for example `email`), for a made-up example only, never for a real value. A personal term cannot be waived.
-- No network calls, analytics, or telemetry from the app's own code. Next.js telemetry is a per-machine setting, so run `npx next telemetry disable` once after cloning. The Next dev server's own version check is the only outside request.
+- No network calls, analytics, or telemetry from the app's own code. Next.js telemetry is a per-machine setting, so run `npx next telemetry disable` once after cloning. The only outside requests are Next's own: the dev server's version check, and the check of npm's security advisories for the installed Next.js that `next dev` and `next build` make (`experimental.agentUpgrade` in `next.config.ts`). `next start` makes neither.
 
 ## Stability
 

@@ -4,6 +4,11 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   // No reason to tell every visitor which framework answered.
   poweredByHeader: false,
+  experimental: {
+    // next dev and next build say when the installed Next.js has a security advisory and a safe
+    // version to move to. This is the default, written out so the choice stays visible.
+    agentUpgrade: "security",
+  },
   async headers() {
     return [
       {

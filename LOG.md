@@ -1695,3 +1695,48 @@ You were asked two questions before Edit and Delete, and chose:
   and that nothing calls yet, which stays for the piece that will use it.
 - `npm run verify` (1052 tests, 2 skipped on Windows, and the public-repo check on the new
   text) and `npm run build` pass. `AGENTS.md` is not part of this piece and is not staged.
+
+## 28. Move Next.js from 16.4.0 to 16.4.2 for three security advisories (Claude Code)
+
+**Asked:**
+
+> Read and follow "[the upgrade folder]/shared.md" first. Attempt its applicable duplicate
+> checks before changing files. [...] Then read and follow every applicable instruction in
+> "[the upgrade folder]/same-major.md".
+>
+> We're upgrading the app in "[this repository]" from Next.js 16.4.0 to 16.4.2 because the
+> installed version is affected by a published security advisory.
+>
+> If the app is in a Git repository, perform the upgrade in a separate Git worktree. [...]
+>
+> Set `experimental.agentUpgrade` to "security" in the app's Next.js config as part of this
+> upgrade. Preserve unrelated configuration. [...]
+
+**What came back / what changed:**
+
+- Why: npm's advisory data lists 16.4.0 under three advisories, and 16.4.2 under none. They
+  are a denial of service through Server Actions in the App Router (high), and two remote
+  code execution flaws (critical): one in the image optimization API when SVG files are
+  used, and one in `use cache` functions that return typed arrays. 16.4.2 is npm's `latest`.
+- Before changing anything I looked for the same work: no open pull request, and no branch
+  or commit about a Next.js upgrade. The work was done in a separate worktree, on a new
+  branch from `develop`.
+- `package.json` asks for `next` `^16.4.2` instead of `^16.3.8`, so an install can no
+  longer pick an affected version. In `package-lock.json`, Next.js, `@next/env` and the
+  `@next/swc` builds move to 16.4.2, with the range Next.js gives for its optional image
+  package. Nothing else changed: `npm ci`, then `npm install next@^16.4.2`.
+- `next.config.ts` sets `experimental.agentUpgrade` to `"security"`. That is already the
+  default since 16.4.0, so nothing behaves differently. It is written out so the choice is
+  visible. With it, `next dev` and `next build` check npm's security advisories for the
+  installed Next.js and say when there is a safe version to move to. `next start` does not.
+- That check is a request outside this computer, and `CLAUDE.md` and the README said the dev
+  server's version check was the only one. Both now name the advisory check too, say that
+  `next dev` and `next build` make it, and say that `next start` makes neither.
+- Checks: `next --version` says 16.4.2. `npm run verify` (1052 tests, 2 skipped on Windows)
+  and `npm run build` pass. The built app, started on `127.0.0.1` with a new empty database,
+  answered 200 for five addresses (Up next, Completed, Later with a difficulty, a bad view
+  with markup in the group, and an unknown task), with each view's empty sentence, the
+  three security headers and no `X-Powered-By`, and its log showed no errors.
+- The first build failed while prerendering, because the shell it ran in had `NODE_ENV` set
+  to `development`, which nothing in this repository sets. With it unset, the build passes.
+- `/code-review` raised nothing.
